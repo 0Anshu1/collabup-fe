@@ -10,7 +10,7 @@ export interface SearchInput {
   top_n?: number;
 }
 
-const RECOMMENDATION_API_BASE_URL = import.meta.env.VITE_RECOMMENDATION_API_URL || 'http://localhost:8000';
+import { RECOMMENDATION_API_BASE_URL } from '../config/apiConfig';
 
 export class RecommendationService {
   static async getRecommendations(query: string, topN: number = 5): Promise<RecommendationResponse> {

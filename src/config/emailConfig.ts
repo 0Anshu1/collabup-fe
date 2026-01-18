@@ -1,7 +1,7 @@
 // Email configuration with environment variables and fallbacks
 export const EMAIL_CONFIG = {
   // Backend API endpoints
-  backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5050',
+  backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000',
   emailEndpoint: import.meta.env.VITE_EMAIL_API_URL || '',
   feedbackEndpoint: import.meta.env.VITE_FEEDBACK_API_URL || '',
 
