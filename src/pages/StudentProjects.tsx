@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Search, BookOpen, Code, Star, MapPin, Clock, ChevronDown, Upload, X, Check, Users } from 'lucide-react';
-import { auth, db } from '../firebase/firebaseConfig';
+import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/firebaseConfig';
+import { API_BASE_URL } from '../config/apiConfig';
+import { Search, ChevronDown, Upload, X, Check } from 'lucide-react';
 import { sendCollabEmail } from '../utils/sendCollabEmail';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getStudentProjects, addStudentProject } from '../firebase/firebaseService';
+import { doc, getDoc } from 'firebase/firestore';
+import { useTheme } from '../context/ThemeContext';
 
 interface Project {
-  id: number;
+  id: string;
   title: string;
   description: string;
   domain: string;
   level: string;
-  levelColor: string;
   technologies: string[];
   duration: string;
   coverUrl: string;
@@ -20,7 +22,7 @@ interface Project {
   ownerEmail: string;
   ownerName: string;
   location: string;
-  matchScore: number;
+  matchScore?: number;
 }
 
 const domains = [
@@ -62,384 +64,13 @@ const technologies = [
   'UI/UX'
 ];
 
-// Mock data for student projects
-const mockProjects: Project[] = [
-  {
-    id: 1,
-    title: "AI-Powered Study Assistant",
-    description: "An intelligent chatbot that helps students with homework, provides explanations, and tracks study progress using natural language processing.",
-    domain: "Machine Learning",
-    level: "Intermediate",
-    levelColor: "bg-yellow-500/20 text-yellow-400",
-    technologies: ["Python", "Machine Learning", "NLP", "Flask"],
-    duration: "3 Months",
-    coverUrl: "https://images.unsplash.com/photo-1677442136019-21780ecad995?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "me22b2044@iiitdm.ac.in",
-    ownerEmail: "me22b2044@iiitdm.ac.in",
-    ownerName: "Subhash Bishnoi",
-    location: "Jodhpur, India",
-    matchScore: 95
-  },
-  {
-    id: 2,
-    title: "Smart Campus Navigation",
-    description: "A mobile app that provides real-time navigation within college campuses, including class schedules and room availability.",
-    domain: "Mobile Development",
-    level: "Beginner",
-    levelColor: "bg-green-500/20 text-green-400",
-    technologies: ["React Native", "Firebase", "Maps API", "JavaScript"],
-    duration: "2 Months",
-    coverUrl: "https://images.unsplash.com/photo-1551650975-87deedd944c3?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "me22b1051@iiitdm.ac.in",
-    ownerEmail: "me22b1051@iiitdm.ac.in",
-    ownerName: "Vikas Yadav",
-    location: "Gurgaon, India",
-    matchScore: 88
-  },
-  {
-    id: 3,
-    title: "Blockchain-based Certificate Verification",
-    description: "A decentralized system for verifying academic certificates and preventing fraud using blockchain technology.",
-    domain: "Blockchain",
-    level: "Advanced",
-    levelColor: "bg-red-500/20 text-red-400",
-    technologies: ["Solidity", "Web3.js", "React", "IPFS"],
-    duration: "6 Months",
-    coverUrl: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "me22b1069@iiitdm.ac.in",
-    ownerEmail: "me22b1069@iiitdm.ac.in",
-    ownerName: "Prashant Tyagi",
-    location: "Meerut, India",
-    matchScore: 92
-  },
-  {
-    id: 4,
-    title: "IoT Smart Agriculture System",
-    description: "An IoT-based system that monitors soil moisture, temperature, and humidity to optimize crop irrigation and increase yield.",
-    domain: "IoT",
-    level: "Intermediate",
-    levelColor: "bg-yellow-500/20 text-yellow-400",
-    technologies: ["Arduino", "Python", "IoT", "Data Analytics"],
-    duration: "4 Months",
-    coverUrl: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "cs22b2050@iiitdm.ac.in",
-    ownerEmail: "cs22b2050@iiitdm.ac.in",
-    ownerName: "Ashutosh Shandilya",
-    location: "Kanpur, India",
-    matchScore: 85
-  },
-  {
-    id: 5,
-    title: "Cybersecurity Threat Detection",
-    description: "A machine learning-based system that detects and prevents cyber threats in real-time using network traffic analysis.",
-    domain: "Cybersecurity",
-    level: "Advanced",
-    levelColor: "bg-red-500/20 text-red-400",
-    technologies: ["Python", "Machine Learning", "Network Security", "Docker"],
-    duration: "5 Months",
-    coverUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "cs22b2047@iiitdm.ac.in",
-    ownerEmail: "cs22b2047@iiitdm.ac.in",
-    ownerName: "Nitin Thaber",
-    location: "Delhi, India",
-    matchScore: 90
-  },
-  {
-    id: 6,
-    title: "Cloud-based Student Management System",
-    description: "A comprehensive web application for managing student records, attendance, and academic performance using cloud services.",
-    domain: "Cloud Computing",
-    level: "Intermediate",
-    levelColor: "bg-yellow-500/20 text-yellow-400",
-    technologies: ["AWS", "React", "Node.js", "MongoDB"],
-    duration: "3 Months",
-    coverUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "cs22b2051@iiitdm.ac.in",
-    ownerEmail: "cs22b2051@iiitdm.ac.in",
-    ownerName: "Anshu Saini",
-    location: "Chennai, India",
-    matchScore: 92
-  },
-  {
-    id: 7,
-    title: "Data Science for Social Good",
-    description: "A project using data science to solve social issues and improve community well-being.",
-    domain: "Data Science",
-    level: "Beginner",
-    levelColor: "bg-green-500/20 text-green-400",
-    technologies: ["Python", "Pandas", "Data Visualization"],
-    duration: "2 Months",
-    coverUrl: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "me22b1078@iiitdm.ac.in",
-    ownerEmail: "me22b1078@iiitdm.ac.in",
-    ownerName: "Arpita Roy",
-    location: "Kolkata, India",
-    matchScore: 89
-  },
-  {
-    id: 8,
-    title: "IoT for Smart Cities",
-    description: "A project focused on using IoT to improve urban infrastructure and services.",
-    domain: "IoT",
-    level: "Advanced",
-    levelColor: "bg-red-500/20 text-red-400",
-    technologies: ["Arduino", "IoT", "Python"],
-    duration: "6 Months",
-    coverUrl: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "me22b2017@iiitdm.ac.in",
-    ownerEmail: "me22b2017@iiitdm.ac.in",
-    ownerName: "Rishit Rastogi",
-    location: "Lucknow, India",
-    matchScore: 91
-  },
-  {
-    id: 9,
-    title: "Blockchain for Secure Voting",
-    description: "A blockchain-based voting system to ensure secure and transparent elections.",
-    domain: "Blockchain",
-    level: "Intermediate",
-    levelColor: "bg-yellow-500/20 text-yellow-400",
-    technologies: ["Solidity", "Web3.js", "React"],
-    duration: "4 Months",
-    coverUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-    ownerId: "cs22b2010@iiitdm.ac.in",
-    ownerEmail: "cs22b2010@iiitdm.ac.in",
-    ownerName: "Kush Jain",
-    location: "Jaipur, India",
-    matchScore: 86
-  },
-];
 
-const ProjectCard = ({ project }: { project: Project }) => {
-  const [isCollaborateModalOpen, setIsCollaborateModalOpen] = useState(false);
-  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<{ email: string; fullName: string } | null>(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setUserData({ 
-              email: data.email, 
-              fullName: data.fullName || data.startupName || data.founderName || 'User' 
-            });
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleCollaborateClick = () => {
-    if (!currentUser) {
-      setIsSignInModalOpen(true);
-      return;
-    }
-    setIsCollaborateModalOpen(true);
-  };
-
-  const handleCollaborateConfirm = async () => {
-    if (!currentUser || !userData) return;
-
-    try {
-      // Email to project owner
-      await sendCollabEmail({
-        to: project.ownerEmail,
-        subject: `Collaboration Request for ${project.title}`,
-        text: `${userData.fullName} (${userData.email}) wants to collaborate on your project "${project.title}".`,
-        html: `<p>${userData.fullName} (${userData.email}) wants to collaborate on your project "${project.title}".</p>`
-        // type: 'collab' // default
-      });
-
-      // Email to collaborator
-      await sendCollabEmail({
-        to: userData.email,
-        subject: `Collaboration Request Sent for ${project.title}`,
-        text: `You have successfully requested to collaborate on "${project.title}". The project owner ${project.ownerName} has been notified and will contact you at ${userData.email}.`,
-        html: `<p>You have successfully requested to collaborate on "${project.title}". The project owner ${project.ownerName} has been notified and will contact you at ${userData.email}.</p>`
-        // type: 'collab' // default
-      });
-
-      setIsCollaborateModalOpen(false);
-      setIsSuccessModalOpen(true);
-    } catch (error) {
-      console.error('Error sending emails:', error);
-      alert('Failed to send collaboration request. Please try again.');
-    }
-  };
-
-  return (
-    <>
-      <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 border border-gray-700">
-        <div className="relative">
-          <img
-            src={project.coverUrl}
-            alt={project.title}
-            className="w-full h-48 object-cover"
-            onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/400x256/1f2937/6b7280?text=Project')}
-          />
-          <div className="absolute top-4 right-4 bg-gray-900 px-3 py-1 rounded-full shadow-md border border-gray-700">
-            <div className="flex items-center gap-1">
-              <Star className="text-yellow-400" size={16} fill="currentColor" />
-              <span className="font-semibold text-gray-200">{project.matchScore}%</span>
-            </div>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="mb-4">
-            <h3 className="text-xl font-semibold text-gray-200 mb-2">{project.title}</h3>
-            <div className="flex items-center gap-2 text-gray-400">
-              <MapPin size={16} />
-              <span className="text-sm">{project.location}</span>
-            </div>
-          </div>
-          
-          <p className="text-gray-400 mb-4 line-clamp-3">{project.description}</p>
-          
-          <div className="mb-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <BookOpen size={16} className="text-indigo-400" />
-              <span className="font-medium text-gray-300">{project.domain}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock size={16} className="text-indigo-400" />
-              <span className="text-gray-400">{project.duration}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Code size={16} className="text-indigo-400" />
-              <span className={`px-2 py-1 rounded-full text-sm ${project.levelColor}`}>
-                {project.level}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-4">
-            {project.technologies.map((tech, index) => (
-              <span
-                key={index}
-                className="px-3 py-1 bg-gray-700 text-indigo-300 rounded-full text-sm border border-gray-600"
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
-
-          <button 
-            onClick={handleCollaborateClick}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Collaborate
-          </button>
-        </div>
-      </div>
-
-      {/* Collaboration Modal */}
-      {isCollaborateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 relative">
-            <button
-              onClick={() => setIsCollaborateModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-bold text-white mb-4">Collaborate on Project</h2>
-            <h3 className="text-lg text-gray-200 mb-6">{project.title}</h3>
-            
-            <div className="space-y-4">
-              <p className="text-gray-300">
-                You're about to send a collaboration request to <strong>{project.ownerName}</strong>.
-              </p>
-              <p className="text-gray-300">
-                Both you and the project owner will receive each other's contact details via email.
-              </p>
-            </div>
-
-            <div className="flex gap-4 mt-6">
-              <button
-                onClick={() => setIsCollaborateModalOpen(false)}
-                className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCollaborateConfirm}
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Send Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sign In Modal */}
-      {isSignInModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 border border-gray-700 text-center">
-            <h3 className="text-xl font-semibold text-white mb-4">Sign In Required</h3>
-            <p className="text-gray-300 mb-6">
-              Please sign in to collaborate on this project.
-            </p>
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => {
-                  setIsSignInModalOpen(false);
-                  navigate('/login');
-                }}
-                className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => setIsSignInModalOpen(false)}
-                className="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Modal */}
-      {isSuccessModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 border border-gray-700 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-green-500 rounded-full p-2">
-                <Check size={32} className="text-white" />
-              </div>
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-4">
-              Collaboration Request Sent! 🎉
-            </h3>
-            <p className="text-gray-300 mb-6">
-              You have received the details of the project owner via mail.
-            </p>
-            <button
-              onClick={() => setIsSuccessModalOpen(false)}
-              className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
+// ProjectCard and related modals removed for production cleanup.
 
 const StudentProjects = () => {
+  const { theme } = useTheme();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
@@ -447,8 +78,9 @@ const StudentProjects = () => {
   const [selectedTechnology, setSelectedTechnology] = useState('');
   const [showThankYou, setShowThankYou] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitError, setSubmitError] = useState('');
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -461,31 +93,186 @@ const StudentProjects = () => {
     location: '',
     coverUrl: '',
   });
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await getStudentProjects();
+        setProjects(data);
+      } catch (err) {
+        console.error('Error fetching projects:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserData = async (user: User) => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setForm(prev => ({
+            ...prev,
+            ownerName: userData.fullName || userData.name || '',
+            ownerEmail: userData.email || user.email || '',
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching user data:', err);
+      }
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        fetchUserData(user);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
   const [showForm, setShowForm] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // If an ID is present, show only the selected project card (with fallback for string/number IDs)
+  // If an ID is present, show only the selected project card
   const params = new URLSearchParams(location.search);
   const selectedId = params.get('id');
   let selectedProject: Project | undefined = undefined;
   if (selectedId) {
     selectedProject = projects.find(p => String(p.id) === String(selectedId));
-    if (!selectedProject) {
-      // Fallback: try to parse as number for mock data
-      const numId = Number(selectedId);
-      if (!isNaN(numId)) {
-        selectedProject = projects.find(p => p.id === numId);
-      }
-    }
   }
+
+
+  // Inline ProjectCard component
+  const ProjectCard = ({ project, onCollaborate }: { project: Project, onCollaborate: (project: Project) => void }) => (
+    <div className={`rounded-[2rem] p-8 border flex flex-col justify-between shadow-sm group hover:shadow-2xl transition-all duration-500 relative overflow-hidden ${
+      theme === 'dark' 
+        ? 'bg-slate-950 border-slate-800 hover:shadow-blue-900/10' 
+        : 'bg-white border-slate-100 hover:shadow-blue-500/10'
+    }`}>
+      <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+      
+      <div className="relative">
+        <div className={`relative mb-6 overflow-hidden rounded-2xl border ${
+          theme === 'dark' ? 'border-slate-800' : 'border-slate-100'
+        }`}>
+          <img 
+            src={project.coverUrl || 'https://via.placeholder.com/400x200?text=Project+Cover'} 
+            alt={project.title} 
+            className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
+          />
+          {project.matchScore && (
+            <div className={`absolute top-4 right-4 backdrop-blur-md text-blue-400 text-xs font-black px-4 py-2 rounded-full shadow-lg border transition-all duration-500 ${
+              theme === 'dark' ? 'bg-slate-950 border-blue-500/20' : 'bg-white/90 border-blue-500/20'
+            }`}>
+              {project.matchScore}% MATCH
+            </div>
+          )}
+        </div>
+
+        <h3 className={`text-2xl font-black mb-3 group-hover:text-blue-400 transition-all duration-500 ${
+          theme === 'dark' ? 'text-slate-100' : 'text-slate-900'
+        }`}>{project.title}</h3>
+        <p className={`font-medium mb-6 line-clamp-2 leading-relaxed transition-all duration-500 ${
+          theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+        }`}>{project.description}</p>
+        
+        <div className="flex flex-wrap gap-2 mb-6">
+          {project.technologies && project.technologies.map((tech, idx) => (
+            <span key={idx} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all duration-500 ${
+              theme === 'dark' 
+                ? 'bg-blue-900/30 text-blue-400 border-blue-800/50' 
+                : 'bg-blue-50 text-blue-600 border-blue-100'
+            }`}>
+              {tech}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          {[project.domain, project.level, project.duration, project.location].map((item, idx) => (
+            <div key={idx} className={`p-3 rounded-xl border text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all duration-500 ${
+              theme === 'dark' 
+                ? 'bg-slate-900/50 border-slate-700/50 text-slate-500' 
+                : 'bg-slate-50 border-slate-200 text-slate-500'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-400'}`} />
+              {item}
+            </div>
+          ))}
+        </div>
+
+        <div className={`flex items-center gap-3 mb-8 pt-6 border-t transition-all duration-500 ${
+          theme === 'dark' ? 'border-slate-800' : 'border-slate-100'
+        }`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border transition-all duration-500 ${
+            theme === 'dark' 
+              ? 'bg-blue-900/30 text-blue-400 border-blue-800/50' 
+              : 'bg-blue-50 text-blue-600 border-blue-100'
+          }`}>
+            {project.ownerName?.charAt(0)}
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Posted by</p>
+            <p className={`text-sm font-bold transition-all duration-500 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{project.ownerName}</p>
+          </div>
+        </div>
+      </div>
+
+      <button 
+        onClick={() => onCollaborate(project)}
+        className="w-full bg-blue-600 text-white py-4 rounded-xl font-black shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] transition-all duration-500 flex items-center justify-center gap-3 focus:ring-4 focus:ring-blue-500/50 outline-none"
+      >
+        Collaborate
+        <Check size={18} />
+      </button>
+    </div>
+  );
+
+  // Collaborate handler
+  const handleCollaborate = async (project: Project) => {
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await sendCollabEmail({
+        to: project.ownerEmail,
+        subject: `Collaboration Request for ${project.title}`,
+        html: `<p>Hello ${project.ownerName},</p><p>A student is interested in collaborating on your project: <b>${project.title}</b>.</p>`
+      });
+      setShowThankYou(true);
+      setTimeout(() => setShowThankYou(false), 3000);
+    } catch (err) {
+      setSubmitError('Failed to send collaboration request. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (selectedId && selectedProject) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <button onClick={() => window.history.back()} className="text-blue-400 hover:underline mb-4">&larr; Back</button>
+      <div className={`min-h-screen py-12 px-6 transition-all duration-500 ${
+        theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
+      }`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <button 
+              onClick={() => navigate(-1)} 
+              className="text-blue-400 hover:underline mb-4 focus:ring-4 focus:ring-blue-500/50 outline-none transition-all duration-500 rounded-lg px-2"
+            >
+              &larr; Back
+            </button>
+          </div>
+          <ProjectCard project={selectedProject} onCollaborate={handleCollaborate} />
+          {showThankYou && (
+            <div className="mt-4 text-green-400 font-semibold animate-fade-in">Collaboration request sent!</div>
+          )}
+          {submitError && (
+            <div className="mt-4 text-red-400 font-semibold animate-fade-in">{submitError}</div>
+          )}
         </div>
-        <ProjectCard project={selectedProject} />
       </div>
     );
   }
@@ -510,202 +297,438 @@ const StudentProjects = () => {
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      alert('Please log in to submit a project.');
+      return;
+    }
     setSubmitting(true);
     setSubmitError('');
     try {
-      // Compose email body
-      const html = `<h2>New Student Project Submission</h2><ul>${Object.entries(form).map(([k,v]) => `<li><b>${k}:</b> ${v}</li>`).join('')}</ul>`;
+      const token = await currentUser.getIdToken();
+      const projectData = {
+        title: form.title,
+        description: form.description,
+        domain: form.domain,
+        level: form.level,
+        technologies: form.technologies.split(',').map(t => t.trim()).filter(t => t !== ''),
+        duration: form.duration,
+        location: form.location,
+        coverUrl: form.coverUrl || 'https://via.placeholder.com/400x200?text=Project+Cover',
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/projects/student`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(projectData)
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to submit project');
+      }
+      
+      // Also send email notification
+      const html = `<h2>New Student Project Submission</h2><ul>${Object.entries(projectData).map(([k,v]) => `<li><b>${k}:</b> ${Array.isArray(v) ? v.join(', ') : v}</li>`).join('')}</ul>`;
       await sendCollabEmail({
         to: 'collabup4@gmail.com',
         subject: '[URGENT]! Project Review',
         text: `New project submitted: ${form.title} by ${form.ownerName} (${form.ownerEmail})`,
         html,
-        // type: 'collab' // default
       });
+
       setShowThankYou(true);
-      setProjects([
-        {
-          ...form,
-          id: Date.now(),
-          technologies: form.technologies.split(',').map(t => t.trim()),
-          levelColor: 'bg-green-500/20 text-green-400',
-          matchScore: 100,
-        } as Project,
-        ...projects
-      ]);
-      setForm({ title: '', description: '', domain: '', level: '', technologies: '', duration: '', ownerName: '', ownerEmail: '', location: '', coverUrl: '' });
+      setShowForm(false);
+      setForm({ title: '', description: '', domain: '', level: '', technologies: '', duration: '', ownerName: form.ownerName, ownerEmail: form.ownerEmail, location: '', coverUrl: '' });
+      
+      // Refresh projects list
+      const updatedProjects = await getStudentProjects();
+      setProjects(updatedProjects);
     } catch (err: any) {
-      setSubmitError('Failed to submit project. Please try again.');
+      setSubmitError(err.message || 'Failed to submit project. Please try again.');
+      console.error('Error submitting project:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className={`flex items-center justify-center min-h-screen transition-colors duration-500 ${
+        theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+      }`}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          <p className={`font-bold animate-pulse transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      {/* Upload Project Button */}
-      <div className="flex justify-end mb-6">
+  <div className={`min-h-screen py-12 px-6 transition-colors duration-500 ${
+    theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
+  }`}>
+    <div className="max-w-7xl mx-auto">
+      {currentUser ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+          {[
+            { title: 'Recommended', color: 'blue', text: 'AI-powered recommendations will appear here based on your interests.' },
+            { title: 'My Portfolio', color: 'blue', text: 'Track your joined projects and showcase your achievements here.' },
+            { title: 'Earned Badges', color: 'amber', text: 'Your collection of earned badges and certificates will be displayed here.' },
+            { title: 'Mentor Suggestions', color: 'emerald', text: 'Connect with recommended mentors who match your project goals.' }
+          ].map((item, idx) => (
+            <div key={idx} className={`rounded-[2rem] p-8 shadow-sm border transition-all duration-500 group ${
+              theme === 'dark' 
+                ? `bg-slate-900 border-slate-800 hover:shadow-${item.color}-900/10` 
+                : `bg-white border-slate-100 hover:shadow-${item.color}-500/5`
+            }`}>
+              <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 transition-colors duration-500 ${
+                item.color === 'blue' ? 'text-blue-500' : 
+                item.color === 'amber' ? 'text-amber-500' : 'text-emerald-500'
+              }`}>
+                <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+                  item.color === 'blue' ? 'bg-blue-500' : 
+                  item.color === 'amber' ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}></div>
+                {item.title}
+              </h2>
+              <p className={`text-sm leading-relaxed transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{item.text}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={`rounded-[3rem] p-12 text-center shadow-sm border mb-16 transition-all duration-500 ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+        }`}>
+          <h2 className={`text-3xl font-black mb-4 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Welcome to Student Projects</h2>
+          <p className={`text-lg max-w-2xl mx-auto mb-8 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Log in to unlock personalized project recommendations, build your portfolio, and earn achievement badges.</p>
+          <button 
+            onClick={() => navigate('/login')}
+            className={`px-8 py-4 rounded-2xl font-bold transition-all duration-500 shadow-xl active:scale-95 ${
+              theme === 'dark' 
+                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20' 
+                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
+            }`}
+          >
+            Get Started
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-6">
+        <div>
+          <h1 className={`text-5xl font-black mb-4 tracking-tight transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Student Projects</h1>
+          <p className={`text-xl font-medium transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Discover and collaborate on innovative student-led initiatives.</p>
+        </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold shadow-lg transition-all duration-300"
+          className={`flex items-center gap-3 px-10 py-5 rounded-[1.5rem] font-bold shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 ${
+            theme === 'dark' 
+              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20' 
+              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
+          }`}
         >
-          <Upload size={20} /> Upload Project
+          <Upload size={24} /> 
+          <span>Upload Project</span>
         </button>
       </div>
-      {/* Project Submission Modal */}
+
+      <div className={`rounded-[2.5rem] shadow-sm p-10 mb-16 border transition-all duration-500 ${
+        theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+      }`}>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-2 relative">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={24} />
+            <input
+              type="text"
+              placeholder="Search by title, domain, or tech stack..."
+              className={`w-full pl-14 pr-6 py-5 border rounded-2xl outline-none transition-all duration-500 font-medium ${
+                theme === 'dark' 
+                  ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-slate-900' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+              }`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="relative">
+            <select
+              value={selectedDomain}
+              onChange={(e) => setSelectedDomain(e.target.value)}
+              className={`w-full appearance-none pl-6 pr-12 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold cursor-pointer ${
+                theme === 'dark' 
+                  ? 'bg-slate-950 border-slate-700 text-white focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+              }`}
+            >
+              <option value="">All Domains</option>
+              {domains.map((domain) => (
+                <option key={domain} value={domain}>{domain}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+          </div>
+
+          <div className="relative">
+            <select
+              value={selectedLevel}
+              onChange={(e) => setSelectedLevel(e.target.value)}
+              className={`w-full appearance-none pl-6 pr-12 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold cursor-pointer ${
+                theme === 'dark' 
+                  ? 'bg-slate-950 border-slate-700 text-white focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+              }`}
+            >
+              <option value="">All Levels</option>
+              {levels.map((level) => (
+                <option key={level} value={level}>{level}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+          </div>
+        </div>
+      </div>
+
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl p-8 max-w-2xl w-full mx-4 border border-indigo-700 relative">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-6">
+          <div className={`rounded-[3rem] p-10 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative border animate-in fade-in zoom-in duration-300 ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+          }`}>
             <button
               onClick={() => setShowForm(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              className={`absolute top-8 right-8 transition-colors p-2 rounded-xl ${
+                theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-900'
+              }`}
             >
-              <X size={28} />
+              <X size={24} />
             </button>
-            <h2 className="text-2xl font-bold text-white mb-4">Submit Your Project</h2>
-            <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleProjectSubmit}>
-              <input name="title" value={form.title} onChange={handleFormChange} required placeholder="Project Title" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="ownerName" value={form.ownerName} onChange={handleFormChange} required placeholder="Your Name" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="ownerEmail" value={form.ownerEmail} onChange={handleFormChange} required type="email" placeholder="Your Email" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="location" value={form.location} onChange={handleFormChange} required placeholder="Location" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="domain" value={form.domain} onChange={handleFormChange} required placeholder="Domain (e.g. AI, Web)" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="level" value={form.level} onChange={handleFormChange} required placeholder="Level (Beginner/Intermediate/Advanced)" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="duration" value={form.duration} onChange={handleFormChange} required placeholder="Duration (e.g. 3 Months)" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="coverUrl" value={form.coverUrl} onChange={handleFormChange} placeholder="Cover Image URL (optional)" className="p-2 rounded bg-gray-800 text-white border border-gray-700" />
-              <input name="technologies" value={form.technologies} onChange={handleFormChange} required placeholder="Technologies (comma separated)" className="p-2 rounded bg-gray-800 text-white border border-gray-700 md:col-span-2" />
-              <textarea name="description" value={form.description} onChange={handleFormChange} required placeholder="Project Description" className="p-2 rounded bg-gray-800 text-white border border-gray-700 md:col-span-2" rows={3} />
-              <div className="md:col-span-2 flex gap-4 items-center">
-                <button type="submit" disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold">
-                  {submitting ? 'Submitting...' : 'Submit Project'}
+            <h2 className={`text-3xl font-black mb-8 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Submit Your Project</h2>
+            <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleProjectSubmit}>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Project Title</label>
+                <input name="title" value={form.title} onChange={handleFormChange} required placeholder="e.g. AI Study Assistant" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Your Name</label>
+                <input name="ownerName" value={form.ownerName} onChange={handleFormChange} required placeholder="Your full name" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
+                <input name="ownerEmail" value={form.ownerEmail} onChange={handleFormChange} required type="email" placeholder="hello@example.com" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Location</label>
+                <input name="location" value={form.location} onChange={handleFormChange} required placeholder="e.g. Remote, Mumbai" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Domain</label>
+                <input name="domain" value={form.domain} onChange={handleFormChange} required placeholder="e.g. Web Development" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Difficulty Level</label>
+                <input name="level" value={form.level} onChange={handleFormChange} required placeholder="Beginner/Intermediate/Advanced" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Duration</label>
+                <input name="duration" value={form.duration} onChange={handleFormChange} required placeholder="e.g. 3 Months" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Cover Image URL</label>
+                <input name="coverUrl" value={form.coverUrl} onChange={handleFormChange} placeholder="https://..." className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Technologies</label>
+                <input name="technologies" value={form.technologies} onChange={handleFormChange} required placeholder="React, Node.js, Firebase (comma separated)" className={`w-full p-4 rounded-2xl border outline-none transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} />
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Project Description</label>
+                <textarea name="description" value={form.description} onChange={handleFormChange} required placeholder="Describe your project, goals, and who you're looking for..." className={`w-full p-4 rounded-2xl border outline-none transition-all min-h-[120px] resize-none ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/20 focus:border-blue-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`} rows={4} />
+              </div>
+              <div className="md:col-span-2 flex items-center justify-between pt-4">
+                <button type="submit" disabled={submitting} className={`px-10 py-4 rounded-2xl font-bold shadow-xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
+                  theme === 'dark' 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
+                }`}>
+                  {submitting ? 'Submitting...' : 'Launch Project'}
                 </button>
-                {submitError && <span className="text-red-400">{submitError}</span>}
+                {submitError && <span className="text-rose-600 font-bold text-sm">{submitError}</span>}
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* Thank You Modal */}
+
       {showThankYou && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl p-8 max-w-md w-full mx-4 border border-green-700 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-green-500 rounded-full p-2"><Check size={32} className="text-white" /></div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-6">
+          <div className={`rounded-[3rem] p-12 max-w-md w-full shadow-2xl text-center border animate-in fade-in zoom-in duration-300 ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+          }`}>
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 ${
+              theme === 'dark' ? 'bg-emerald-900/20 text-emerald-500' : 'bg-emerald-100 text-emerald-600'
+            }`}>
+              <Check size={40} strokeWidth={3} />
             </div>
-            <h3 className="text-2xl font-semibold text-white mb-4">Thank you for your submission! 🎉</h3>
-            <p className="text-gray-300 mb-6">Your project has been submitted for review. We will contact you soon.</p>
-            <button onClick={() => setShowThankYou(false)} className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Close</button>
+            <h3 className={`text-3xl font-black mb-4 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Project Launched! 🎉</h3>
+            <p className={`font-medium mb-10 leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Your project is now live and ready for collaboration. We'll notify you when someone shows interest.</p>
+            <button 
+              onClick={() => setShowThankYou(false)} 
+              className={`w-full py-5 rounded-2xl font-bold transition-all ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 text-white hover:bg-slate-700' 
+                  : 'bg-slate-900 text-white hover:bg-slate-800'
+              }`}
+            >
+              Back to Projects
+            </button>
           </div>
         </div>
       )}
-      {/* Header */}
-      <div className="text-center mb-12 pt-6">
-        <h1 className="text-4xl font-bold text-white mb-4">
-          Student Projects
-        </h1>
-        <p className="text-lg text-gray-400">
-          Discover and collaborate on innovative student projects
-        </p>
-      </div>
 
-      {/* Search and Filter Section */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search by project title, description, or technologies..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-4">
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedDomain}
-                  onChange={(e) => setSelectedDomain(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Domains</option>
-                  {domains.map((domain) => (
-                    <option key={domain} value={domain}>
-                      {domain}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
-            </div>
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedLevel}
-                  onChange={(e) => setSelectedLevel(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Levels</option>
-                  {levels.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
-            </div>
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedDuration}
-                  onChange={(e) => setSelectedDuration(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Durations</option>
-                  {durations.map((duration) => (
-                    <option key={duration} value={duration}>
-                      {duration}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
-            </div>
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedTechnology}
-                  onChange={(e) => setSelectedTechnology(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Technologies</option>
-                  {technologies.map((tech) => (
-                    <option key={tech} value={tech}>
-                      {tech}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
-            </div>
-          </div>
+      {filteredProjects.length === 0 ? (
+        <div className={`text-center py-32 rounded-[3rem] border shadow-sm transition-all duration-500 ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+        }`}>
+          <p className={`text-xl font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>No projects found matching your criteria.</p>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {filteredProjects.map((project) => (
+            <div key={project.id} className={`rounded-[2.5rem] p-8 border flex flex-col justify-between shadow-sm group hover:shadow-2xl transition-all duration-500 ${
+              theme === 'dark' 
+                ? 'bg-slate-900 border-slate-800 hover:shadow-blue-900/10 hover:border-blue-900/50' 
+                : 'bg-white border-slate-100 hover:shadow-blue-500/10 hover:border-blue-200'
+            }`}>
+              <div className="relative">
+                <div className={`h-56 w-full mb-8 overflow-hidden rounded-[1.5rem] relative group-hover:scale-[1.02] transition-all duration-500 ${
+                  theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+                }`}>
+                  <img 
+                    src={project.coverUrl || 'https://via.placeholder.com/400x200?text=Project+Cover'} 
+                    alt={project.title} 
+                    className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100 transition-opacity" 
+                  />
+                  {project.matchScore && (
+                    <div className="absolute top-4 right-4 bg-blue-600 text-white text-xs font-black px-4 py-2 rounded-full shadow-xl shadow-blue-600/20">
+                      {project.matchScore}% MATCH
+                    </div>
+                  )}
+                </div>
+                
+                <h3 className={`text-2xl font-black mb-3 group-hover:text-blue-600 transition-colors duration-500 leading-tight ${
+                  theme === 'dark' ? 'text-white' : 'text-slate-900'
+                }`}>{project.title}</h3>
+                <p className={`font-medium mb-6 line-clamp-2 leading-relaxed transition-colors duration-500 ${
+                  theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+                }`}>{project.description}</p>
+                
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {project.technologies?.slice(0, 3).map((tech, idx) => (
+                    <span key={idx} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-500 ${
+                      theme === 'dark' 
+                        ? 'bg-blue-900/30 text-blue-400 border-blue-800/50' 
+                        : 'bg-blue-50 text-blue-600 border-blue-100'
+                    }`}>{tech}</span>
+                  ))}
+                  {project.technologies?.length > 3 && (
+                    <span className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-500 ${
+                      theme === 'dark' ? 'bg-slate-950 text-slate-500' : 'bg-slate-50 text-slate-400'
+                    }`}>+{project.technologies.length - 3}</span>
+                  )}
+                </div>
 
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {selectedId && !selectedProject ? (
-          <div className="col-span-full text-center text-red-400 font-semibold text-lg">Project not found.</div>
-        ) : selectedProject ? (
-          <ProjectCard key={selectedProject.id} project={selectedProject} />
-        ) : (
-          filteredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))
-        )}
-      </div>
+                <div className="grid grid-cols-2 gap-3 mb-8">
+                  <div className={`px-4 py-2 rounded-xl border flex flex-col transition-all duration-500 ${
+                    theme === 'dark' ? 'bg-slate-950 border-slate-700' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Domain</span>
+                    <span className={`text-sm font-bold truncate transition-colors duration-500 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{project.domain}</span>
+                  </div>
+                  <div className={`px-4 py-2 rounded-xl border flex flex-col transition-all duration-500 ${
+                    theme === 'dark' ? 'bg-slate-950 border-slate-700' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Level</span>
+                    <span className={`text-sm font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{project.level}</span>
+                  </div>
+                </div>
+
+                <div className={`flex items-center justify-between pt-6 border-t transition-colors duration-500 ${
+                  theme === 'dark' ? 'border-slate-700' : 'border-slate-50'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 ${
+                      theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
+                    }`}>
+                      {project.ownerName?.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Owner</p>
+                      <p className={`text-sm font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{project.ownerName}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                className={`mt-10 font-bold py-5 px-6 rounded-[1.5rem] transition-all duration-500 transform active:scale-95 shadow-xl ${
+                  theme === 'dark' 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20' 
+                    : 'bg-slate-900 hover:bg-blue-600 text-white shadow-slate-900/10 hover:shadow-blue-600/20'
+                }`}
+                onClick={() => handleCollaborate(project)}
+              >
+                Collaborate
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
+  </div>
   );
 };
 

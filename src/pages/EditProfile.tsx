@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db, storage } from '../firebase/firebaseConfig';
+import { auth, db } from '../firebase/firebaseConfig';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { buildProfileObjectPath, uploadViaSignedUrl, getSignedReadUrl } from '../utils/gcsUpload';
 import { v4 as uuidv4 } from 'uuid';
 import { User as UserIcon, Upload, Save, ArrowLeft } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 interface UserData {
   fullName?: string;
@@ -39,6 +40,7 @@ const EditProfile: React.FC = () => {
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { theme } = useTheme();
 
   // Form fields
   const [fullName, setFullName] = useState('');
@@ -126,20 +128,22 @@ const EditProfile: React.FC = () => {
     setSuccess(null);
 
     try {
-      let profilePicUrl = userData.profilePicUrl;
+      let profilePicUrl = userData.profilePicUrl || null;
+      let profilePicObjectPath = (userData as any).profilePicObjectPath || null;
 
-      // Upload new profile picture if selected
+      // Upload new profile picture via signed URL (GCS) if selected
       if (profilePic) {
-        const profilePicFileName = `${uuidv4()}-${profilePic.name}`;
-        const profilePicRef = ref(storage, `profile-pics/${currentUser.uid}/${profilePicFileName}`);
-        
-        const uploadTask = await uploadBytes(profilePicRef, profilePic);
-        profilePicUrl = await getDownloadURL(uploadTask.ref);
+        const objectPath = buildProfileObjectPath(userData.role, currentUser.uid, profilePic.name);
+        await uploadViaSignedUrl(objectPath, profilePic);
+        // Get a short-lived read URL to display; store the objectPath in Firestore
+        profilePicUrl = await getSignedReadUrl(objectPath);
+        profilePicObjectPath = objectPath;
       }
 
       // Prepare update data based on user role
       const updateData: any = {
         profilePicUrl,
+        profilePicObjectPath,
         updatedAt: new Date().toISOString()
       };
 
@@ -183,22 +187,37 @@ const EditProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className={`flex items-center justify-center min-h-screen transition-colors duration-500 ${
+        theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+      }`}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          <p className={`font-bold animate-pulse transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   if (!currentUser || !userData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-400 mb-4">Please sign in to edit your profile</p>
+      <div className={`flex items-center justify-center min-h-screen transition-colors duration-500 p-6 ${
+        theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+      }`}>
+        <div className={`rounded-[2.5rem] p-12 text-center shadow-xl border max-w-md w-full animate-scale-in transition-all duration-500 ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+        }`}>
+          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 transition-colors duration-500 ${
+            theme === 'dark' ? 'bg-rose-900/20' : 'bg-rose-50'
+          }`}>
+            <UserIcon className="w-10 h-10 text-rose-500" />
+          </div>
+          <h2 className={`text-2xl font-black mb-4 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Access Denied</h2>
+          <p className={`font-medium mb-10 leading-relaxed transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Please sign in to view and edit your professional profile.</p>
           <button
             onClick={() => navigate('/login')}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+            className="w-full px-8 py-4 rounded-2xl font-black transition-all duration-500 shadow-xl uppercase tracking-widest text-sm bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20"
           >
-            Sign In
+            Sign In Now
           </button>
         </div>
       </div>
@@ -206,242 +225,326 @@ const EditProfile: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={20} />
-          Back
-        </button>
-      </div>
+    <div className={`min-h-screen transition-colors duration-500 py-12 px-6 animate-fade-in ${
+      theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+    }`}>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <button
+            onClick={() => navigate(-1)}
+            className={`flex items-center gap-2 transition-all duration-500 font-black uppercase tracking-widest text-xs group ${
+              theme === 'dark' ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'
+            }`}
+          >
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform duration-500" />
+            Back to Dashboard
+          </button>
+        </div>
 
-      <div className="bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-700">
-        <h1 className="text-3xl font-bold text-white mb-8 text-center">Edit Profile</h1>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/50 text-red-300 rounded-lg border border-red-800">
-            {error}
+        <div className={`rounded-[2.5rem] shadow-2xl p-10 md:p-16 border relative overflow-hidden animate-scale-in transition-all duration-500 ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+        }`}>
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-blue-700" />
+          
+          <div className="text-center mb-16">
+            <h1 className={`text-5xl font-black mb-4 tracking-tight transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Edit Profile</h1>
+            <p className={`font-medium text-lg transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Keep your professional information up to date</p>
           </div>
-        )}
 
-        {success && (
-          <div className="mb-6 p-4 bg-green-900/50 text-green-300 rounded-lg border border-green-800">
-            {success}
-          </div>
-        )}
+          {error && (
+            <div className={`mb-10 p-6 rounded-3xl border flex items-center gap-4 animate-fade-in transition-all duration-500 ${
+              theme === 'dark' ? 'bg-rose-900/20 text-rose-400 border-rose-900/50' : 'bg-rose-50 text-rose-600 border-rose-100'
+            }`}>
+              <div className="w-2 h-2 bg-rose-600 rounded-full animate-pulse" />
+              <p className="font-bold">{error}</p>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Profile Picture Section */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
+          {success && (
+            <div className={`mb-10 p-6 rounded-3xl border flex items-center gap-4 animate-fade-in transition-all duration-500 ${
+              theme === 'dark' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+            }`}>
+              <div className="w-2 h-2 bg-emerald-600 rounded-full animate-pulse" />
+              <p className="font-bold">{success}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-12">
+            {/* Profile Picture Section */}
+            <div className="flex flex-col items-center">
+              <div className="relative group">
+                <div className={`w-40 h-40 rounded-[2.5rem] overflow-hidden flex items-center justify-center border-4 shadow-2xl transition-transform duration-500 group-hover:scale-105 ${
+                  theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-white'
+                }`}>
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className={`w-16 h-16 ${theme === 'dark' ? 'text-slate-600' : 'text-slate-300'}`} />
+                  )}
+                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Upload className="w-8 h-8 text-white animate-bounce" />
+                  </div>
+                </div>
+                <label className={`absolute -bottom-4 -right-4 bg-blue-600 rounded-2xl p-4 cursor-pointer hover:bg-blue-700 hover:scale-110 transition-all shadow-xl shadow-blue-600/30 border-4 ${
+                  theme === 'dark' ? 'border-slate-800' : 'border-white'
+                }`}>
+                  <Upload className="w-5 h-5 text-white" />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    onChange={handleProfilePicChange}
+                    className="hidden"
                   />
-                ) : (
-                  <UserIcon className="w-16 h-16 text-gray-400" />
-                )}
+                </label>
               </div>
-              <label className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-2 cursor-pointer hover:bg-blue-600 transition-colors">
-                <Upload className="w-4 h-4 text-white" />
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg"
-                  onChange={handleProfilePicChange}
-                  className="hidden"
-                />
-              </label>
-            </div>
-            <p className="text-sm text-gray-400">Click the upload icon to change your profile picture</p>
-          </div>
-
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {userData.role === 'startup' ? 'Startup Name' : 'Full Name'}
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder={userData.role === 'startup' ? 'Enter startup name' : 'Enter your full name'}
-                required
-              />
+              <p className={`mt-8 text-xs font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Update Profile Picture</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {userData.role === 'startup' ? 'Founder Name' : 'Institute/Organization'}
-              </label>
-              <input
-                type="text"
-                value={instituteName}
-                onChange={(e) => setInstituteName(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder={userData.role === 'startup' ? 'Enter founder name' : 'Enter institute name'}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Role-specific fields */}
-          {userData.role === 'student' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Skills (comma-separated)</label>
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-3">
+                <label className={`text-xs font-black uppercase tracking-widest ml-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>
+                  {userData.role === 'startup' ? 'Startup Name' : 'Full Name'}
+                </label>
                 <input
                   type="text"
-                  value={skills}
-                  onChange={(e) => setSkills(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="e.g., React, Node.js, Python"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">LeetCode Profile URL</label>
-                  <input
-                    type="url"
-                    value={leetCodeUrl}
-                    onChange={(e) => setLeetCodeUrl(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="https://leetcode.com/yourusername"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">CodeForces Profile URL</label>
-                  <input
-                    type="url"
-                    value={codeForcesUrl}
-                    onChange={(e) => setCodeForcesUrl(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="https://codeforces.com/profile/yourusername"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {userData.role === 'faculty' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Research Areas (comma-separated)</label>
-              <input
-                type="text"
-                value={researchAreas}
-                onChange={(e) => setResearchAreas(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="e.g., Machine Learning, AI, Data Science"
-              />
-            </div>
-          )}
-
-          {userData.role === 'mentor' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Expertise Areas (comma-separated)</label>
-                <input
-                  type="text"
-                  value={expertiseAreas}
-                  onChange={(e) => setExpertiseAreas(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="e.g., Web Development, Machine Learning, UI/UX"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Years of Experience</label>
-                <input
-                  type="number"
-                  value={yearsOfExperience}
-                  onChange={(e) => setYearsOfExperience(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Enter years of experience"
-                  min="0"
-                />
-              </div>
-            </>
-          )}
-
-          {userData.role === 'startup' && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Website</label>
-                  <input
-                    type="url"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="https://yourstartup.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Industry</label>
-                  <input
-                    type="text"
-                    value={industry}
-                    onChange={(e) => setIndustry(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="e.g., Technology, Healthcare, Finance"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Company Description</label>
-                <textarea
-                  value={companyDescription}
-                  onChange={(e) => setCompanyDescription(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  rows={4}
-                  placeholder="Describe your startup and what you do..."
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                    theme === 'dark' 
+                      ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                      : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                  }`}
+                  placeholder={userData.role === 'startup' ? 'Enter startup name' : 'Enter your full name'}
                   required
                 />
               </div>
-            </>
-          )}
 
-          {/* Social Links */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">LinkedIn Profile URL</label>
-              <input
-                type="url"
-                value={linkedInUrl}
-                onChange={(e) => setLinkedInUrl(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="https://linkedin.com/in/yourusername"
-              />
+              <div className="space-y-3">
+                <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>
+                  {userData.role === 'startup' ? 'Founder Name' : 'Institute/Organization'}
+                </label>
+                <input
+                  type="text"
+                  value={instituteName}
+                  onChange={(e) => setInstituteName(e.target.value)}
+                  className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                    theme === 'dark' 
+                      ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                      : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                  }`}
+                  placeholder={userData.role === 'startup' ? 'Enter founder name' : 'Enter institute name'}
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">GitHub Profile URL</label>
-              <input
-                type="url"
-                value={gitHubUrl}
-                onChange={(e) => setGitHubUrl(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="https://github.com/yourusername"
-              />
-            </div>
-          </div>
 
-          <div className="flex justify-center pt-6">
+            {/* Role-specific fields */}
+            {userData.role === 'student' && (
+              <>
+                <div className="space-y-3">
+                  <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Skills (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={skills}
+                    onChange={(e) => setSkills(e.target.value)}
+                    className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                      theme === 'dark' 
+                        ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                        : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                    }`}
+                    placeholder="e.g., React, Node.js, Python"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-3">
+                    <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>LeetCode Profile URL</label>
+                    <input
+                      type="url"
+                      value={leetCodeUrl}
+                      onChange={(e) => setLeetCodeUrl(e.target.value)}
+                      className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                        theme === 'dark' 
+                          ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                          : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="https://leetcode.com/yourusername"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>CodeForces Profile URL</label>
+                    <input
+                      type="url"
+                      value={codeForcesUrl}
+                      onChange={(e) => setCodeForcesUrl(e.target.value)}
+                      className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                        theme === 'dark' 
+                          ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                          : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="https://codeforces.com/profile/yourusername"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {userData.role === 'faculty' && (
+              <div className="space-y-3">
+                <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Research Areas (comma-separated)</label>
+                <input
+                  type="text"
+                  value={researchAreas}
+                  onChange={(e) => setResearchAreas(e.target.value)}
+                  className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                    theme === 'dark' 
+                      ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                      : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                  }`}
+                  placeholder="e.g., Machine Learning, AI, Data Science"
+                />
+              </div>
+            )}
+
+            {userData.role === 'mentor' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-3">
+                  <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Expertise Areas (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={expertiseAreas}
+                    onChange={(e) => setExpertiseAreas(e.target.value)}
+                    className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                      theme === 'dark' 
+                        ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                        : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                    }`}
+                    placeholder="e.g., Web Development, Machine Learning, UI/UX"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Years of Experience</label>
+                  <input
+                    type="number"
+                    value={yearsOfExperience}
+                    onChange={(e) => setYearsOfExperience(e.target.value === '' ? '' : Number(e.target.value))}
+                    className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                      theme === 'dark' 
+                        ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                        : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                    }`}
+                    placeholder="Enter years of experience"
+                    min="0"
+                  />
+                </div>
+              </div>
+            )}
+
+            {userData.role === 'startup' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-3">
+                    <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Website</label>
+                    <input
+                      type="url"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                        theme === 'dark' 
+                          ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                          : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="https://yourstartup.com"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Industry</label>
+                    <input
+                      type="text"
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                        theme === 'dark' 
+                          ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                          : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="e.g., Technology, Healthcare, Finance"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>Company Description</label>
+                  <textarea
+                    value={companyDescription}
+                    onChange={(e) => setCompanyDescription(e.target.value)}
+                    className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold h-48 resize-none ${
+                      theme === 'dark' 
+                        ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                        : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                    }`}
+                    placeholder="Describe your startup and what you do..."
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Social Links */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-3">
+                <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>LinkedIn Profile URL</label>
+                <input
+                  type="url"
+                  value={linkedInUrl}
+                  onChange={(e) => setLinkedInUrl(e.target.value)}
+                  className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                    theme === 'dark' 
+                      ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                      : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                  }`}
+                  placeholder="https://linkedin.com/in/username"
+                />
+              </div>
+              <div className="space-y-3">
+                <label className={`text-xs font-black uppercase tracking-widest ml-1 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-900'}`}>GitHub Profile URL</label>
+                <input
+                  type="url"
+                  value={gitHubUrl}
+                  onChange={(e) => setGitHubUrl(e.target.value)}
+                  className={`w-full px-8 py-5 border rounded-2xl outline-none transition-all duration-500 font-bold ${
+                    theme === 'dark' 
+                      ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                      : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                  }`}
+                  placeholder="https://github.com/username"
+                />
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full font-black py-6 rounded-3xl transition-all duration-500 transform active:scale-[0.98] shadow-2xl flex items-center justify-center gap-4 group uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20 hover:shadow-blue-600/30"
             >
-              <Save className="w-5 h-5" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                  <span>Saving Changes...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                  <span>Update Profile</span>
+                </>
+              )}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

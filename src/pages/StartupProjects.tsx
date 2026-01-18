@@ -3,6 +3,7 @@ import { Search, BookOpen, Code, Star, MapPin, GraduationCap, Clock, ChevronDown
 import { auth } from '../firebase/firebaseConfig';
 import { enrollInProject, getProjects } from '../firebase/firebaseService';
 import { useLocation } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 
 interface Project {
   id: number;
@@ -72,101 +73,10 @@ const skillsList = [
   'UI/UX'
 ];
 
-const startupImages = [
-  'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=256&q=80',
-  'https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=256&q=80',
-];
 
-const projects: Project[] = [
-  {
-    id: 1,
-    title: "AI-Powered Healthcare Platform",
-    company: "HealthTech Solutions",
-    domain: "Machine Learning",
-    duration: "3 Months",
-    level: "Intermediate",
-    imageUrl: startupImages[0],
-    location: "Bangalore, India",
-    matchScore: 95,
-    skills: ["Python", "Machine Learning", "AWS", "Docker"],
-    certificate: true,
-    offeredBy: "MedAI Innovations",
-    description: "A platform leveraging AI to assist doctors in diagnosis and patient management."
-  },
-  {
-    id: 2,
-    title: "Smart City IoT Solution",
-    company: "Urban Innovations",
-    domain: "IoT",
-    duration: "6 Months",
-    level: "Advanced",
-    imageUrl: startupImages[1],
-    location: "Mumbai, India",
-    matchScore: 88,
-    skills: ["IoT", "Python", "Cloud Computing", "Data Analytics"],
-    certificate: true,
-    offeredBy: "SmartCity Tech",
-    description: "IoT-based solution for smart city infrastructure and analytics."
-  },
-  {
-    id: 3,
-    title: "Blockchain-based Voting System",
-    company: "SecureVote",
-    domain: "Blockchain",
-    duration: "4 Months",
-    level: "Intermediate",
-    imageUrl: startupImages[2],
-    location: "Delhi, India",
-    matchScore: 90,
-    skills: ["Solidity", "Web3.js", "React"],
-    certificate: true,
-    offeredBy: "SecureVote Labs",
-    description: "A secure, transparent voting platform using blockchain technology."
-  },
-  {
-    id: 4,
-    title: "EdTech Learning Platform",
-    company: "Learnify",
-    domain: "Web Development",
-    duration: "2 Months",
-    level: "Beginner",
-    imageUrl: startupImages[3],
-    location: "Chennai, India",
-    matchScore: 85,
-    skills: ["React", "Node.js", "UI/UX"],
-    certificate: true,
-    offeredBy: "Learnify Pvt Ltd",
-    description: "Interactive learning platform for students and teachers."
-  },
-  {
-    id: 5,
-    title: "Cloud-based Student Management System",
-    company: "EduCloud",
-    domain: "Cloud Computing",
-    duration: "3 Months",
-    level: "Intermediate",
-    imageUrl: startupImages[4],
-    location: "Hyderabad, India",
-    matchScore: 92,
-    skills: ["AWS", "React", "Node.js", "MongoDB"],
-    certificate: true,
-    offeredBy: "EduCloud Solutions",
-    description: "Manage student records, attendance, and performance in the cloud."
-  },
-  // ...existing code for more projects, update their imageUrl and add description as above...
-];
-
-const fallbackImage = 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=256&q=80';
 
 const EnrollmentModal: React.FC<EnrollmentModalProps> = ({ isOpen, onClose, project }) => {
+  const { theme } = useTheme();
   const [idCard, setIdCard] = useState<File | null>(null);
   const [resume, setResume] = useState<File | null>(null);
   const [startDate, setStartDate] = useState(startDateOptions[0]);
@@ -174,19 +84,11 @@ const EnrollmentModal: React.FC<EnrollmentModalProps> = ({ isOpen, onClose, proj
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
-    if (!idCard || !resume) {
-      alert('Please upload both ID Card and Resume');
-      return;
-    }
-
-    if (!auth.currentUser) {
-      alert('Please sign in to enroll in a project');
-      return;
-    }
+    if (!idCard || !resume) return;
+    if (!auth.currentUser) return;
 
     setLoading(true);
     try {
-      // TODO: Implement file upload to Firebase Storage
       const idCardUrl = 'placeholder-url';
       const resumeUrl = 'placeholder-url';
 
@@ -202,14 +104,12 @@ const EnrollmentModal: React.FC<EnrollmentModalProps> = ({ isOpen, onClose, proj
       setTimeout(() => {
         setShowSuccess(false);
         onClose();
-        // Reset form
         setIdCard(null);
         setResume(null);
         setStartDate(startDateOptions[0]);
       }, 3000);
     } catch (error) {
       console.error('Error enrolling in project:', error);
-      alert('Failed to enroll in project. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -218,106 +118,122 @@ const EnrollmentModal: React.FC<EnrollmentModalProps> = ({ isOpen, onClose, proj
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 relative">
+    <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-[100] p-6 animate-fade-in transition-all duration-500">
+      <div className={`rounded-[2.5rem] p-8 max-w-md w-full relative shadow-2xl border transform animate-scale-in transition-all duration-500 ${
+        theme === 'dark' ? 'bg-slate-900/50 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+      }`}>
         {!showSuccess ? (
           <>
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-bold text-white mb-4">Enroll in Project</h2>
-            <h3 className="text-lg text-gray-200 mb-6">{project.title}</h3>
+            <div className="flex justify-between items-center mb-8">
+              <h2 className={`text-3xl font-black transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Enroll Now</h2>
+              <button
+                onClick={onClose}
+                className={`p-2 rounded-xl transition-all duration-500 ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className={`p-4 rounded-2xl border mb-8 transition-colors duration-500 ${
+              theme === 'dark' ? 'bg-blue-900/20 border-blue-900/30' : 'bg-blue-50 border-blue-100'
+            }`}>
+              <h3 className={`text-sm font-black uppercase tracking-widest mb-1 transition-colors duration-500 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-400'}`}>Project</h3>
+              <p className={`text-lg font-bold leading-tight transition-colors duration-500 ${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'}`}>{project.title}</p>
+            </div>
 
             <div className="space-y-6">
-              {/* ID Card Upload */}
               <div>
-                <label className="block text-gray-300 mb-2">Upload ID Card</label>
-                <div className="relative">
+                <label className={`block text-sm font-bold mb-2 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Upload ID Card</label>
+                <div className="relative group">
                   <input
                     type="file"
                     onChange={(e) => setIdCard(e.target.files?.[0] || null)}
-                    className="hidden"
-                    id="idCard"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     accept=".pdf,.jpg,.jpeg,.png"
                   />
-                  <label
-                    htmlFor="idCard"
-                    className="flex items-center justify-center px-4 py-2 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
-                  >
-                    <Upload size={20} className="mr-2 text-indigo-400" />
-                    <span className="text-gray-300">
+                  <div className={`w-full flex items-center gap-3 px-4 py-3 border rounded-2xl group-hover:border-blue-500 transition-all duration-500 ${
+                    theme === 'dark' ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm text-blue-600 transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-slate-900' : 'bg-white'
+                    }`}>
+                      <Upload size={20} />
+                    </div>
+                    <span className={`font-medium truncate transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       {idCard ? idCard.name : 'Choose ID Card'}
                     </span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
-              {/* Resume Upload */}
               <div>
-                <label className="block text-gray-300 mb-2">Upload Resume</label>
-                <div className="relative">
+                <label className={`block text-sm font-bold mb-2 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Upload Resume</label>
+                <div className="relative group">
                   <input
                     type="file"
                     onChange={(e) => setResume(e.target.files?.[0] || null)}
-                    className="hidden"
-                    id="resume"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     accept=".pdf,.doc,.docx"
                   />
-                  <label
-                    htmlFor="resume"
-                    className="flex items-center justify-center px-4 py-2 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
-                  >
-                    <Upload size={20} className="mr-2 text-indigo-400" />
-                    <span className="text-gray-300">
+                  <div className={`w-full flex items-center gap-3 px-4 py-3 border rounded-2xl group-hover:border-blue-500 transition-all duration-500 ${
+                    theme === 'dark' ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm text-blue-600 transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-slate-900' : 'bg-white'
+                    }`}>
+                      <Upload size={20} />
+                    </div>
+                    <span className={`font-medium truncate transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       {resume ? resume.name : 'Choose Resume'}
                     </span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
-              {/* Start Date Selection */}
               <div>
-                <label className="block text-gray-300 mb-2">
-                  When can you start?
-                </label>
-                <select
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  {startDateOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <label className={`block text-sm font-bold mb-2 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>When can you start?</label>
+                <div className="relative">
+                  <select
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`w-full px-4 py-4 border rounded-2xl outline-none transition-all duration-500 font-bold appearance-none cursor-pointer ${
+                      theme === 'dark' 
+                        ? 'bg-slate-950 border-slate-800 text-white focus:ring-4 focus:ring-blue-500/50 focus:border-blue-500' 
+                        : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-4 focus:ring-blue-500/50 focus:border-blue-500'
+                    }`}
+                  >
+                    {startDateOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+                </div>
               </div>
 
               <button
                 onClick={handleConfirm}
                 disabled={loading}
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full py-4 rounded-2xl font-bold shadow-xl transition-all duration-500 disabled:opacity-50 ${
+                  theme === 'dark' 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20 hover:scale-[1.02]' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20 hover:scale-[1.02]'
+                }`}
               >
                 {loading ? 'Enrolling...' : 'Confirm Enrollment'}
               </button>
             </div>
           </>
         ) : (
-          <div className="text-center py-8">
-            <div className="flex justify-center mb-4">
-              <div className="bg-green-500 rounded-full p-2">
-                <Check size={32} className="text-white" />
-              </div>
+          <div className="text-center py-12">
+            <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 transition-colors duration-500 ${
+              theme === 'dark' ? 'bg-emerald-900/20' : 'bg-emerald-100'
+            }`}>
+              <Check size={40} className="text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Thanks For Enrolling! 🎉
-            </h2>
-            <p className="text-gray-300">
-              The startup will contact you within the next 12 hours.
-            </p>
+            <h2 className={`text-3xl font-black mb-2 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Enrolled! 🎉</h2>
+            <p className={`text-lg transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>The startup will contact you within the next 12 hours.</p>
           </div>
         )}
       </div>
@@ -326,6 +242,7 @@ const EnrollmentModal: React.FC<EnrollmentModalProps> = ({ isOpen, onClose, proj
 };
 
 function StartupProj() {
+  const { theme } = useTheme();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -359,285 +276,286 @@ function StartupProj() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className={`flex items-center justify-center min-h-screen transition-colors duration-500 ${
+        theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+      }`}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          <p className={`font-bold animate-pulse transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Loading opportunities...</p>
+        </div>
       </div>
     );
   }
 
-  // If an ID is present, show only the selected project card (with fallback for string/number IDs)
+  // If an ID is present, show only the selected project card
   const params = new URLSearchParams(location.search);
   const selectedId = params.get('id');
   let selectedProject: Project | undefined = undefined;
   if (selectedId) {
     selectedProject = projects.find(p => String(p.id) === String(selectedId));
-    if (!selectedProject) {
-      // Fallback: try to parse as number for mock data
-      const numId = Number(selectedId);
-      if (!isNaN(numId)) {
-        selectedProject = projects.find(p => p.id === numId);
-      }
-    }
   }
 
   if (selectedId && selectedProject) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <button onClick={() => window.history.back()} className="text-blue-400 hover:underline mb-4">&larr; Back</button>
-        </div>
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700">
-            <div className="relative">
-              <img
-                src={selectedProject.imageUrl && selectedProject.imageUrl.startsWith('http') ? selectedProject.imageUrl : fallbackImage}
-                alt={selectedProject.title}
-                className="w-full h-48 object-cover"
-                onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-              />
-              <div className="absolute top-4 right-4 bg-gray-900 px-3 py-1 rounded-full shadow-md border border-gray-700">
-                <div className="flex items-center gap-1">
-                  <Star className="text-yellow-400" size={16} fill="currentColor" />
-                  <span className="font-semibold text-gray-200">{selectedProject.matchScore}%</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <h3 className="text-xl font-semibold text-gray-200 mb-2">{selectedProject.title}</h3>
-                <div className="flex items-center gap-2 text-gray-400">
-                  <MapPin size={16} />
-                  <span className="text-sm">{selectedProject.location}</span>
-                </div>
-                <p className="text-gray-400 mb-4 line-clamp-3">{selectedProject.description || 'No description available.'}</p>
-              </div>
-              <div className="mb-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <BookOpen size={16} className="text-indigo-400" />
-                  <span className="font-medium text-gray-300">{selectedProject.domain}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">{selectedProject.duration}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Code size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">{selectedProject.level}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <GraduationCap size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">{selectedProject.company}</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {selectedProject.skills.map((skill, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-700 text-indigo-300 rounded-full text-sm border border-gray-600"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-              <button
-                onClick={() => setModalProject(selectedProject)} // FIX: open modal for this project
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Enroll
-              </button>
-            </div>
+      <div className={`min-h-screen transition-colors duration-500 py-12 px-6 ${
+        theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+      }`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <button 
+              onClick={() => window.history.back()} 
+              className={`flex items-center gap-2 transition-all duration-500 font-black uppercase tracking-widest text-xs group ${
+                theme === 'dark' ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'
+              }`}
+            >
+              &larr; Back
+            </button>
           </div>
-          {modalProject && (
-            <EnrollmentModal isOpen={true} onClose={() => setModalProject(null)} project={modalProject} />
-          )}
+          <div className="grid grid-cols-1 gap-6">
+            <div className={`rounded-[2.5rem] shadow-xl overflow-hidden border transition-all duration-500 ${
+              theme === 'dark' ? 'bg-slate-900/50 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+            }`}>
+              <div className="relative">
+                <img
+                  src={selectedProject.imageUrl}
+                  alt={selectedProject.title}
+                  className="w-full h-64 object-cover"
+                />
+                <div className={`absolute top-4 right-4 px-4 py-2 rounded-full shadow-lg border backdrop-blur-md transition-all duration-500 ${
+                  theme === 'dark' ? 'bg-slate-950/90 border-slate-800' : 'bg-white/90 border-slate-100'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <Star className="text-yellow-400" size={18} fill="currentColor" />
+                    <span className={`font-black transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedProject.matchScore}% MATCH</span>
+                  </div>
+                </div>
+              </div>
+              <div className="p-10">
+                <div className="mb-8">
+                  <h3 className={`text-3xl font-black mb-4 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedProject.title}</h3>
+                  <div className={`flex items-center gap-2 mb-6 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <MapPin size={18} />
+                    <span className="font-bold">{selectedProject.location}</span>
+                  </div>
+                  <p className={`text-lg font-medium leading-relaxed mb-8 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {selectedProject.description || 'No description available.'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                  {[
+                    { icon: BookOpen, label: 'Domain', value: selectedProject.domain },
+                    { icon: Clock, label: 'Duration', value: selectedProject.duration },
+                    { icon: Code, label: 'Level', value: selectedProject.level },
+                    { icon: GraduationCap, label: 'Company', value: selectedProject.company }
+                  ].map((info, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl border transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-100'
+                    }`}>
+                      <div className="flex items-center gap-3 mb-1">
+                        <info.icon size={18} className="text-blue-500" />
+                        <span className={`text-[10px] font-black uppercase tracking-widest transition-colors duration-500 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{info.label}</span>
+                      </div>
+                      <p className={`font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{info.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-3 mb-10">
+                  {selectedProject.skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-all duration-500 ${
+                        theme === 'dark' 
+                          ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' 
+                          : 'bg-blue-50 text-blue-600 border-blue-100'
+                      }`}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setModalProject(selectedProject!)}
+                  className={`w-full py-5 rounded-2xl font-black text-lg transition-all duration-500 shadow-xl active:scale-95 ${
+                    theme === 'dark' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-900/20' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
+                  }`}
+                >
+                  Enroll in Project
+                </button>
+              </div>
+            </div>
+            {modalProject && (
+              <EnrollmentModal isOpen={true} onClose={() => setModalProject(null)} project={modalProject} />
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      {/* Header */}
-      <div className="text-center mb-12 pt-6">
-        <h1 className="text-4xl font-bold text-white mb-4">
-          Startup and Industrial Projects
-        </h1>
-        <p className="text-lg text-gray-400">
-          Gain real-world experience through industry projects and earn certifications
-        </p>
-      </div>
+    <div className={`min-h-screen transition-colors duration-500 py-12 px-6 ${
+      theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
+    }`}>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <h1 className={`text-6xl font-black mb-6 tracking-tight transition-colors duration-500 ${
+            theme === 'dark' ? 'text-white' : 'text-slate-900'
+          }`}>Startup Projects</h1>
+          <p className={`text-xl max-w-2xl mx-auto font-medium transition-colors duration-500 ${
+            theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+          }`}>Gain real-world experience through industry projects and earn certifications</p>
+        </div>
 
-      {/* Search and Filter Section */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search by project, company, or skills..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-4">
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedDomain}
-                  onChange={(e) => setSelectedDomain(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Domains</option>
-                  {domains.map((domain) => (
-                    <option key={domain} value={domain}>
-                      {domain}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
+        {/* Search and Filter Section */}
+        <div className={`rounded-[2.5rem] shadow-xl p-10 mb-16 border transition-all duration-500 ${
+          theme === 'dark' ? 'bg-slate-900/50 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+        }`}>
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="flex-1 relative">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6" />
+              <input
+                type="text"
+                placeholder="Search by project, company, or skills..."
+                className={`w-full pl-14 pr-6 py-4 border rounded-2xl outline-none transition-all duration-500 text-lg font-bold ${
+                  theme === 'dark' 
+                    ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-slate-900' 
+                    : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white'
+                }`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedDuration}
-                  onChange={(e) => setSelectedDuration(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Durations</option>
-                  {durations.map((duration) => (
-                    <option key={duration} value={duration}>
-                      {duration}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
-            </div>
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedLevel}
-                  onChange={(e) => setSelectedLevel(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Levels</option>
-                  {levels.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
-            </div>
-            <div className="relative inline-block">
-              <div className="relative">
-                <select
-                  value={selectedSkills}
-                  onChange={(e) => setSelectedSkills(e.target.value)}
-                  className="appearance-none w-48 pl-4 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="">All Skills</option>
-                  {skillsList.map((skill) => (
-                    <option key={skill} value={skill}>
-                      {skill}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-              </div>
+            <div className="flex flex-wrap gap-4">
+              {[
+                { value: selectedDomain, setter: setSelectedDomain, options: domains, label: 'All Domains' },
+                { value: selectedDuration, setter: setSelectedDuration, options: durations, label: 'All Durations' },
+                { value: selectedLevel, setter: setSelectedLevel, options: levels, label: 'All Levels' },
+                { value: selectedSkills, setter: setSelectedSkills, options: skillsList, label: 'All Skills' }
+              ].map((filter, idx) => (
+                <div key={idx} className="relative">
+                  <select
+                    value={filter.value}
+                    onChange={(e) => filter.setter(e.target.value)}
+                    className={`appearance-none px-8 py-4 pr-12 border rounded-2xl font-bold outline-none transition-all duration-500 cursor-pointer ${
+                      theme === 'dark' 
+                        ? 'bg-slate-950 border-slate-800 text-slate-300 focus:ring-4 focus:ring-blue-500/50 focus:border-blue-500' 
+                        : 'bg-slate-50 border-slate-100 text-slate-600 focus:ring-4 focus:ring-blue-500/50 focus:border-blue-500'
+                    }`}
+                  >
+                    <option value="">{filter.label}</option>
+                    {filter.options.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-        {projects.map((project) => (
-          <div key={project.id} className="bg-gray-800 rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 border border-gray-700">
-            <div className="relative">
-              <img
-                src={project.imageUrl && project.imageUrl.startsWith('http') ? project.imageUrl : fallbackImage}
-                alt={project.title}
-                className="w-full h-48 object-cover"
-                onError={(e) => { if (e.currentTarget.src !== fallbackImage) e.currentTarget.src = fallbackImage; }}
-              />
-              <div className="absolute top-4 right-4 bg-gray-900 px-3 py-1 rounded-full shadow-md border border-gray-700">
-                <div className="flex items-center gap-1">
-                  <Star className="text-yellow-400" size={16} fill="currentColor" />
-                  <span className="font-semibold text-gray-200">{project.matchScore}%</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <h3 className="text-xl font-semibold text-gray-200 mb-2">{project.title}</h3>
-                <div className="flex items-center gap-2 text-gray-400">
-                  <MapPin size={16} />
-                  <span className="text-sm">{project.location}</span>
-                </div>
-                <p className="text-gray-400 mb-4 line-clamp-3">{project.description || 'No description available.'}</p>
-              </div>
-              
-              <div className="mb-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <BookOpen size={16} className="text-indigo-400" />
-                  <span className="font-medium text-gray-300">{project.domain}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">{project.duration}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <GraduationCap size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">{project.level}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Code size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">Offered By - {project.offeredBy}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-4">
-                {project.skills.map((skill, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-700 text-indigo-300 rounded-full text-sm border border-gray-600"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-
-              {project.certificate && (
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 text-emerald-400">
-                    <GraduationCap size={16} />
-                    <span className="text-sm">Includes Certificate</span>
+        {/* Projects Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          {projects.filter(project => {
+            const searchMatch = searchTerm === '' ||
+              project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              project.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              project.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
+            const domainMatch = selectedDomain === '' || project.domain === selectedDomain;
+            const durationMatch = selectedDuration === '' || project.duration === selectedDuration;
+            const levelMatch = selectedLevel === '' || project.level === selectedLevel;
+            const skillMatch = selectedSkills === '' || project.skills.includes(selectedSkills);
+            return searchMatch && domainMatch && durationMatch && levelMatch && skillMatch;
+          }).map((project) => (
+            <div key={project.id} className={`rounded-[3rem] shadow-xl overflow-hidden border group hover:shadow-2xl transition-all duration-500 ${
+              theme === 'dark' ? 'bg-slate-900/50 border-slate-800 hover:shadow-blue-500/10' : 'bg-white border-slate-100 hover:shadow-blue-500/5'
+            }`}>
+              <div className="relative">
+                <img
+                  src={project.imageUrl}
+                  alt={project.title}
+                  className="w-full h-56 object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div className={`absolute top-4 right-4 px-4 py-2 rounded-full shadow-lg border backdrop-blur-md transition-all duration-500 ${
+                  theme === 'dark' ? 'bg-slate-950/90 border-slate-800' : 'bg-white/90 border-slate-100'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <Star className="text-yellow-400" size={16} fill="currentColor" />
+                    <span className={`font-black text-xs transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.matchScore}% MATCH</span>
                   </div>
                 </div>
-              )}
+              </div>
+              <div className="p-10">
+                <div className="mb-6">
+                  <h3 className={`text-2xl font-black mb-3 group-hover:text-blue-500 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.title}</h3>
+                  <div className={`flex items-center gap-2 text-sm font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <MapPin size={16} />
+                    <span>{project.location}</span>
+                  </div>
+                </div>
+                
+                <p className={`text-sm font-medium leading-relaxed mb-8 line-clamp-2 transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {project.description || 'No description available.'}
+                </p>
 
-              <button 
-                onClick={() => setModalProject(project)} // FIX: open modal for this project
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Enroll Now
-              </button>
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                  {[
+                    { icon: BookOpen, label: project.domain },
+                    { icon: Clock, label: project.duration },
+                    { icon: GraduationCap, label: project.level },
+                    { icon: Code, label: project.offeredBy }
+                  ].map((info, idx) => (
+                    <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-100'
+                    }`}>
+                      <info.icon size={16} className="text-blue-500" />
+                      <span className={`text-[10px] font-black uppercase tracking-widest truncate transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{info.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {project.skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all duration-500 ${
+                        theme === 'dark' 
+                          ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' 
+                          : 'bg-blue-50 text-blue-600 border-blue-100'
+                      }`}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+
+                <div className={`flex items-center gap-4 pt-8 border-t transition-colors duration-500 ${
+                  theme === 'dark' ? 'border-slate-800' : 'border-slate-100'
+                }`}>
+                  <button
+                    onClick={() => setModalProject(project)}
+                    className="flex-1 py-4 rounded-2xl font-black text-sm transition-all duration-500 shadow-xl active:scale-95 bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20 focus:ring-4 focus:ring-blue-500/50 outline-none"
+                  >
+                    Enroll Now
+                  </button>
+                  {project.certificate && (
+                    <div className={`p-4 rounded-2xl border transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-amber-900/20 border-amber-900/30 text-amber-500' : 'bg-amber-50 border-amber-100 text-amber-600'
+                    }`} title="Certification Available">
+                      <Star size={20} fill="currentColor" />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-
-      {/* Render modal for selected project */}
       {modalProject && (
-        <EnrollmentModal
-          isOpen={true}
-          onClose={() => setModalProject(null)}
-          project={modalProject}
-        />
+        <EnrollmentModal isOpen={true} onClose={() => setModalProject(null)} project={modalProject} />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, Send, X, Bot, User } from 'lucide-react';
 import { CHATBOT_CONFIG, getChatbotAPIUrl, getChatbotPayload, isApiConfigured } from '../config/chatbotConfig';
+import { useTheme } from '../context/ThemeContext';
 
 interface Message {
   id: string;
@@ -15,7 +16,8 @@ interface ChatbotProps {
 }
 
 const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
-  const [messages, setMessages] = useState<Message[]>([
+  const { theme } = useTheme();
+  const [messages, setMessages] = useState<Message[]> ([
     {
       id: '1',
       text: "Hi! I'm CollabUp Assistant. I can help you with questions about our platform, project collaboration, hackathons, mentorship, startup projects, and community features. How can I assist you today?",
@@ -176,21 +178,23 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 w-96 h-[500px] flex flex-col">
+      <div className={`rounded-xl shadow-2xl border w-96 h-[500px] flex flex-col transition-colors duration-300 ${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+      }`}>
         {/* Header */}
-        <div className="bg-indigo-600 rounded-t-xl p-4 flex justify-between items-center">
+        <div className="bg-blue-600 rounded-t-xl p-4 flex justify-between items-center shadow-lg">
           <div className="flex items-center gap-3">
             <Bot className="text-white" size={24} />
             <div>
               <h3 className="text-white font-semibold">CollabUp Assistant</h3>
-              <p className="text-indigo-200 text-sm">
+              <p className="text-blue-100 text-sm opacity-90">
                 {isApiConfigured() ? 'Ask me anything!' : 'Offline Mode'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:text-gray-200 transition-colors"
+            className="text-white hover:bg-white/10 p-1 rounded-lg transition-colors"
           >
             <X size={20} />
           </button>
@@ -204,19 +208,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
               className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-lg p-3 ${
+                className={`max-w-[80%] rounded-2xl p-3 ${
                   message.isUser
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-700 text-gray-200'
+                    ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-600/10'
+                    : theme === 'dark'
+                      ? 'bg-gray-700 text-gray-200 rounded-tl-none'
+                      : 'bg-slate-100 text-slate-800 rounded-tl-none'
                 }`}
               >
                 <div className="flex items-start gap-2">
                   {!message.isUser && (
-                    <Bot size={16} className="text-indigo-400 mt-1 flex-shrink-0" />
+                    <Bot size={16} className="text-blue-400 mt-1 flex-shrink-0" />
                   )}
                   <div>
-                    <p className="text-sm">{message.text}</p>
-                    <p className="text-xs opacity-70 mt-1">
+                    <p className="text-sm leading-relaxed">{message.text}</p>
+                    <p className={`text-[10px] mt-1 opacity-60 ${message.isUser ? 'text-blue-100' : 'text-slate-500'}`}>
                       {message.timestamp.toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -224,7 +230,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
                     </p>
                   </div>
                   {message.isUser && (
-                    <User size={16} className="text-indigo-200 mt-1 flex-shrink-0" />
+                    <User size={16} className="text-blue-200 mt-1 flex-shrink-0" />
                   )}
                 </div>
               </div>
@@ -233,13 +239,15 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
           
           {isTyping && (
             <div className="flex justify-start">
-              <div className="bg-gray-700 text-gray-200 rounded-lg p-3 max-w-[80%]">
+              <div className={`rounded-2xl p-3 max-w-[80%] rounded-tl-none ${
+                theme === 'dark' ? 'bg-gray-700' : 'bg-slate-100'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <Bot size={16} className="text-indigo-400" />
+                  <Bot size={16} className="text-blue-400" />
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-slate-400'}`}></div>
+                    <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-slate-400'}`} style={{ animationDelay: '0.1s' }}></div>
+                    <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-slate-400'}`} style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
@@ -252,13 +260,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
         {/* Quick Questions */}
         {messages.length === 1 && (
           <div className="px-4 pb-2">
-            <p className="text-gray-400 text-sm mb-2">Quick questions:</p>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${
+              theme === 'dark' ? 'text-gray-500' : 'text-slate-400'
+            }`}>Quick questions:</p>
             <div className="flex flex-wrap gap-2">
               {quickQuestions.map((question, index) => (
                 <button
                   key={index}
                   onClick={() => setInputText(question)}
-                  className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full hover:bg-gray-600 transition-colors"
+                  className={`text-xs px-3 py-1.5 rounded-xl transition-all duration-300 border ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700/50 text-gray-300 border-gray-600 hover:bg-gray-700 hover:border-blue-500/50' 
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white hover:border-blue-500/50'
+                  }`}
                 >
                   {question}
                 </button>
@@ -268,7 +282,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
         )}
 
         {/* Input */}
-        <div className="p-4 border-t border-gray-700">
+        <div className={`p-4 border-t transition-colors duration-300 ${
+          theme === 'dark' ? 'border-gray-700' : 'border-slate-100'
+        }`}>
           <div className="flex gap-2">
             <input
               type="text"
@@ -276,15 +292,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your question..."
-              className="flex-1 bg-gray-700 text-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={`flex-1 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all ${
+                theme === 'dark' 
+                  ? 'bg-gray-700 text-gray-200 border-transparent placeholder-gray-500' 
+                  : 'bg-slate-50 text-slate-900 border-slate-200 placeholder-slate-400'
+              }`}
               disabled={isLoading}
             />
             <button
               onClick={handleSendMessage}
               disabled={!inputText.trim() || isLoading}
-              className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
-              <Send size={16} />
+              <Send size={18} />
             </button>
           </div>
         </div>

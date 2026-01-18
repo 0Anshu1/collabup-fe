@@ -1,15 +1,16 @@
 import React, { useState, FormEvent } from 'react';
-import { auth, db, storage } from '../firebase/firebaseConfig';
+import { auth, db } from '../firebase/firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import emailjs from '@emailjs/browser';
 import { useNavigate } from 'react-router-dom';
-import 'cors';
+import { sendCollabEmail } from '../utils/sendCollabEmail';
+import { uploadViaSignedUrl, getSignedReadUrl } from '../utils/gcsUpload';
 import { signInWithGoogle } from '../firebase/authService';
+import { useTheme } from '../context/ThemeContext';
 
 const StudentForm: React.FC = () => {
+  const { theme } = useTheme();
   const [fullName, setFullName] = useState<string>('');
   const [instituteName, setInstituteName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -69,40 +70,12 @@ const StudentForm: React.FC = () => {
       await user.getIdToken(true);
       console.log('Token refreshed');
 
-      // Upload college ID with retry mechanism
+      // Upload college ID via GCS signed URL
       let collegeIdUrl: string | null = null;
       const collegeIdFileName = `${uuidv4()}-${collegeIdFile.name}`;
-      const collegeIdRef = ref(storage, `college-ids/${user.uid}/${collegeIdFileName}`);
-      console.log('Uploading college ID to:', collegeIdRef.fullPath);
-
-      const maxRetries = 3;
-      let attempt = 0;
-      let uploadError: any = null;
-      while (attempt < maxRetries) {
-        try {
-          const uploadTask = await uploadBytes(collegeIdRef, collegeIdFile);
-          console.log('College ID uploaded:', uploadTask.metadata.fullPath);
-          collegeIdUrl = await getDownloadURL(collegeIdRef);
-          console.log('College ID download URL:', collegeIdUrl);
-          break;
-        } catch (err: any) {
-          attempt++;
-          uploadError = err;
-          console.error(`College ID upload attempt ${attempt} failed:`, err.code, err.message);
-          if (err.code === 'storage/unauthorized' && attempt < maxRetries) {
-            console.log('Retrying college ID upload with refreshed token...');
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
-            await user.getIdToken(true);
-            continue;
-          }
-          console.error('College ID upload failed after retries:', err.code, err.message);
-          break;
-        }
-      }
-
-      if (!collegeIdUrl && uploadError) {
-        throw new Error(`Failed to upload college ID: ${uploadError.message}`);
-      }
+      const objectPath = `users/students/${user.uid}/ids/${collegeIdFileName}`;
+      await uploadViaSignedUrl(objectPath, collegeIdFile);
+      collegeIdUrl = await getSignedReadUrl(objectPath);
 
       // Parse skills
       const skillsArray = skills
@@ -121,23 +94,23 @@ const StudentForm: React.FC = () => {
         codeForcesUrl: codeForcesUrl || null,
         linkedInUrl: linkedInUrl || null,
         gitHubUrl: gitHubUrl || null,
+        collegeIdObjectPath: objectPath,
         role: 'student',
         createdAt: new Date().toISOString(),
       });
       console.log('Firestore document saved for user:', user.uid);
 
-      // Send confirmation email
-      const templateParams = {
-        to_name: fullName,
-        to_email: email,
-      };
-      await emailjs.send(
-        'service_qv37c1r', // Replace with your EmailJS Service ID
-        'template_a9799k9', // Replace with your EmailJS Template ID
-        templateParams,
-        'wtGOHmGUOT5eVZGq4' // Replace with your EmailJS Public Key
-      );
-      console.log('Confirmation email sent to:', email);
+      // Send confirmation email (tries EmailJS, falls back to backend) [[memory:2579410]]
+      try {
+        await sendCollabEmail({
+          to: email,
+          subject: 'Welcome to CollabUp! 🎉',
+          text: `Hi ${fullName}, your student account has been created successfully.`,
+        });
+        console.log('Confirmation email sent to:', email);
+      } catch (_) {
+        console.warn('Confirmation email could not be sent, continuing.');
+      }
 
       setSuccess('Account created, please sign in.');
       setFullName('');
@@ -200,177 +173,209 @@ const StudentForm: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-[#1E293B] p-8 rounded-xl shadow-lg border border-gray-700">
-      <h2 className="text-2xl font-bold text-white mb-6 text-center">Student Sign Up</h2>
+    <div className="space-y-8">
       <button
         type="button"
         onClick={handleGoogleSignUp}
-        className="w-full mb-4 flex items-center justify-center gap-2 bg-white text-gray-800 font-semibold py-2 rounded-lg shadow hover:bg-gray-100 transition-all"
+        className={`w-full flex items-center justify-center gap-3 font-bold py-4 rounded-2xl shadow-sm transition-all border ${
+          theme === 'dark' 
+            ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700 hover:shadow-md' 
+            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-md'
+        }`}
         disabled={isLoading}
       >
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
         Sign up with Google
       </button>
       
+      <div className="relative flex items-center gap-4">
+        <div className={`flex-grow h-[1px] ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'}`}></div>
+        <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">or email</span>
+        <div className={`flex-grow h-[1px] ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'}`}></div>
+      </div>
+
       {error && (
-        <div className="mb-4 p-3 bg-red-900/50 text-red-300 rounded-lg border border-red-800">
+        <div className={`p-4 rounded-2xl border font-medium animate-fade-in ${
+          theme === 'dark' ? 'bg-rose-900/20 border-rose-900/30 text-rose-400' : 'bg-rose-50 border-rose-100 text-rose-600'
+        }`}>
           {error}
         </div>
       )}
       
       {success && (
-        <div className="mb-4 p-3 bg-green-900/50 text-green-300 rounded-lg border border-green-800">
+        <div className={`p-4 rounded-2xl border font-medium animate-fade-in ${
+          theme === 'dark' ? 'bg-emerald-900/20 border-emerald-900/30 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'
+        }`}>
           {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Full Name</label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your full name"
-            required
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className={`block text-sm font-bold mb-2 text-left ${
+              theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+            }`}>Full Name</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+              }`}
+              placeholder="Full Name"
+              required
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-bold mb-2 text-left ${
+              theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+            }`}>Institute Name</label>
+            <input
+              type="text"
+              value={instituteName}
+              onChange={(e) => setInstituteName(e.target.value)}
+              className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+              }`}
+              placeholder="College/University"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className={`block text-sm font-bold mb-2 text-left ${
+              theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+            }`}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+              }`}
+              placeholder="Email"
+              required
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-bold mb-2 text-left ${
+              theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+            }`}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+              }`}
+              placeholder="Password"
+              required
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300">Institute Name</label>
-          <input
-            type="text"
-            value={instituteName}
-            onChange={(e) => setInstituteName(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your institute name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your email"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your password"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Skills (comma-separated)</label>
+          <label className={`block text-sm font-bold mb-2 text-left ${
+            theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+          }`}>Skills (comma-separated)</label>
           <input
             type="text"
             value={skills}
             onChange={(e) => setSkills(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+              theme === 'dark' 
+                ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+            }`}
             placeholder="e.g., React, Node.js, Python"
+            required
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300">LeetCode Profile URL</label>
-          <input
-            type="url"
-            value={leetCodeUrl}
-            onChange={(e) => setLeetCodeUrl(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://leetcode.com/yourusername"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className={`block text-sm font-bold mb-2 text-left ${
+              theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+            }`}>LinkedIn URL</label>
+            <input
+              type="url"
+              value={linkedInUrl}
+              onChange={(e) => setLinkedInUrl(e.target.value)}
+              className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+              }`}
+              placeholder="https://linkedin.com/in/..."
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-bold mb-2 text-left ${
+              theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+            }`}>GitHub URL</label>
+            <input
+              type="url"
+              value={gitHubUrl}
+              onChange={(e) => setGitHubUrl(e.target.value)}
+              className={`w-full p-4 rounded-2xl outline-none transition-all border ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+              }`}
+              placeholder="https://github.com/..."
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300">CodeForces Profile URL</label>
-          <input
-            type="url"
-            value={codeForcesUrl}
-            onChange={(e) => setCodeForcesUrl(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://codeforces.com/profile/yourusername"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">LinkedIn Profile URL</label>
-          <input
-            type="url"
-            value={linkedInUrl}
-            onChange={(e) => setLinkedInUrl(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://linkedin.com/in/yourusername"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">GitHub Profile URL</label>
-          <input
-            type="url"
-            value={gitHubUrl}
-            onChange={(e) => setGitHubUrl(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://github.com/yourusername"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">College ID Card (PDF, max 5MB)</label>
-          <div className="mt-1 flex items-center justify-center w-full relative">
-            <label
-              className="w-full flex flex-col items-center px-4 py-6 bg-[#1E293B] text-gray-300 rounded-lg border-2 border-gray-600 border-dashed cursor-pointer hover:border-blue-500 hover:bg-[#2D3B4F] transition-all duration-300"
-              style={{ position: 'relative' }}
-            >
-              <svg
-                className="w-8 h-8 mb-3 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              <span className="text-sm text-gray-400">
-                {collegeIdFile ? collegeIdFile.name : 'Upload your college ID card'}
-              </span>
-              <span className="text-xs text-gray-500 mt-1">PDF only, max 5MB</span>
-              <input
-                type="file"
-                name="collegeid"
-                className="absolute opacity-0 w-full h-full cursor-pointer top-0 left-0"
-                accept=".pdf"
-                onChange={handleFileChange}
-                required
-              />
-            </label>
+          <label className={`block text-sm font-bold mb-4 text-left ${
+            theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+          }`}>College ID Card (PDF, max 5MB)</label>
+          <div className="relative group">
+            <input
+              type="file"
+              onChange={handleFileChange}
+              accept="application/pdf"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              required
+            />
+            <div className={`w-full flex flex-col items-center px-6 py-10 rounded-3xl border-2 border-dashed transition-all ${
+              theme === 'dark' 
+                ? 'bg-slate-800 border-slate-700 text-slate-400 group-hover:border-blue-500 group-hover:bg-blue-900/10' 
+                : 'bg-slate-50 border-slate-200 text-slate-400 group-hover:border-blue-500 group-hover:bg-blue-50'
+            }`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm mb-4 text-blue-600 ${
+                theme === 'dark' ? 'bg-slate-900' : 'bg-white'
+              }`}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+              <span className={`font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{collegeIdFile ? collegeIdFile.name : 'Upload College ID PDF'}</span>
+              <span className="text-sm">Click or drag and drop</span>
+            </div>
           </div>
         </div>
 
         <button
           type="submit"
+          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] transition-all disabled:opacity-50"
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Creating Account...' : 'Create Account'}
+          {isLoading ? 'Creating Account...' : 'Complete Sign Up'}
         </button>
       </form>
     </div>

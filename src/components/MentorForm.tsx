@@ -1,10 +1,13 @@
 import React, { useState, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase/firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { signInWithGoogle } from '../firebase/authService';
+import { useTheme } from '../context/ThemeContext';
 
 const MentorForm: React.FC = () => {
+  const { theme } = useTheme();
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [expertiseAreas, setExpertiseAreas] = useState<string>('');
@@ -14,6 +17,8 @@ const MentorForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -62,7 +67,8 @@ const MentorForm: React.FC = () => {
       });
       console.log('Firestore document saved for user:', user.uid);
 
-      setSuccess('Mentor account created successfully!');
+  setSuccess('Mentor account created successfully!');
+  setTimeout(() => navigate('/mentor-dashboard'), 1000);
       setFullName('');
       setEmail('');
       setExpertiseAreas('');
@@ -97,7 +103,8 @@ const MentorForm: React.FC = () => {
         role: 'mentor',
         createdAt: new Date().toISOString(),
       }, { merge: true });
-      setSuccess('Signed up with Google! Please complete your profile.');
+  setSuccess('Signed up with Google! Please complete your profile.');
+  setTimeout(() => navigate('/mentor-dashboard'), 1000);
       // Optionally redirect or update UI
     } catch (err: any) {
       setError('Google sign-in failed. ' + (err.message || ''));
@@ -107,112 +114,152 @@ const MentorForm: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-[#1E293B] p-8 rounded-xl shadow-lg border border-gray-700">
-      <h2 className="text-2xl font-bold text-white mb-6 text-center">Mentor Sign Up</h2>
+    <div className="space-y-8">
+      <button
+        type="button"
+        onClick={handleGoogleSignUp}
+        className={`w-full flex items-center justify-center gap-3 font-bold py-4 rounded-2xl shadow-sm transition-all border ${
+          theme === 'dark' 
+            ? 'bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700' 
+            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+        }`}
+        disabled={isLoading}
+      >
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+        Sign up with Google
+      </button>
+
+      <div className="relative flex items-center gap-4">
+        <div className={`flex-grow h-[1px] ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'}`}></div>
+        <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">or email</span>
+        <div className={`flex-grow h-[1px] ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'}`}></div>
+      </div>
       
       {error && (
-        <div className="mb-4 p-3 bg-red-900/50 text-red-300 rounded-lg border border-red-800">
+        <div className={`p-4 rounded-2xl border font-medium animate-fade-in ${
+          theme === 'dark' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-600 border-rose-100'
+        }`}>
           {error}
         </div>
       )}
       
       {success && (
-        <div className="mb-4 p-3 bg-green-900/50 text-green-300 rounded-lg border border-green-800">
+        <div className={`p-4 rounded-2xl border font-medium animate-fade-in ${
+          theme === 'dark' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+        }`}>
           {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Full Name</label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your full name"
-            required
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className={`block text-sm font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Full Name</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className={`w-full p-4 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+              }`}
+              placeholder="Full Name"
+              required
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={`w-full p-4 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+              }`}
+              placeholder="Email"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className={`block text-sm font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`w-full p-4 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+              }`}
+              placeholder="Password"
+              required
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Years of Experience</label>
+            <input
+              type="number"
+              value={yearsOfExperience}
+              onChange={(e) => setYearsOfExperience(e.target.value === '' ? '' : Number(e.target.value))}
+              className={`w-full p-4 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                theme === 'dark' 
+                  ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500' 
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+              }`}
+              placeholder="Years"
+              min="0"
+              required
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your email"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your password"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">Expertise Areas (comma-separated)</label>
+          <label className={`block text-sm font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Expertise Areas (comma-separated)</label>
           <input
             type="text"
             value={expertiseAreas}
             onChange={(e) => setExpertiseAreas(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full p-4 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+              theme === 'dark' 
+                ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500' 
+                : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+            }`}
             placeholder="e.g., Web Development, Machine Learning, UI/UX"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300">Years of Experience</label>
-          <input
-            type="number"
-            value={yearsOfExperience}
-            onChange={(e) => setYearsOfExperience(e.target.value === '' ? '' : Number(e.target.value))}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter years of experience"
-            min="0"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300">LinkedIn Profile URL</label>
+          <label className={`block text-sm font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>LinkedIn Profile URL</label>
           <input
             type="url"
             value={linkedInUrl}
             onChange={(e) => setLinkedInUrl(e.target.value)}
-            className="mt-1 w-full px-3 py-2 bg-[#0F172A] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full p-4 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+              theme === 'dark' 
+                ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500' 
+                : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+            }`}
             placeholder="https://linkedin.com/in/yourusername"
           />
         </div>
 
         <button
           type="submit"
+          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] transition-all disabled:opacity-50"
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Creating Account...' : 'Create Account'}
+          {isLoading ? 'Creating Account...' : 'Complete Sign Up'}
         </button>
       </form>
-
-      <button
-        type="button"
-        onClick={handleGoogleSignUp}
-        className="w-full mb-4 flex items-center justify-center gap-2 bg-white text-gray-800 font-semibold py-2 rounded-lg shadow hover:bg-gray-100 transition-all"
-        disabled={isLoading}
-      >
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-        Sign up with Google
-      </button>
     </div>
   );
 };

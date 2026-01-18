@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, BookOpen, Code, Users, Star, MapPin, MessageCircle, User } from 'lucide-react';
+import { Search, BookOpen, Code, Star, MapPin, MessageCircle } from 'lucide-react';
 import { auth, db } from '../firebase/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { sendCollabEmail } from '../utils/sendCollabEmail';
+import { useTheme } from '../context/ThemeContext';
 
 interface BuddyProfile {
   id: number;
@@ -29,136 +30,15 @@ const indianHackathons = [
   "DevsHouse",
 ];
 
-const mockProfiles: BuddyProfile[] = [
-  {
-    id: 1,
-    name: "Subhash Bishnoi",
-    avatar: "anshu.png",
-    domain: "Web Development",
-    level: "Intermediate",
-    skills: ["React", "Node.js", "TypeScript", "Tailwind CSS"],
-    location: "Jodhpur, India",
-    matchScore: 95,
-    hackathons: ["Smart India Hackathon", "DevsHouse"],
-    email: "me22b2044@iiitdm.ac.in",
-  },
-  {
-    id: 2,
-    name: "Vikas Yadav",
-    avatar: "prince.png",
-    domain: "UX Design",
-    level: "Advanced",
-    skills: ["Figma", "UI Design", "User Research"],
-    location: "Gurgaon, India",
-    matchScore: 88,
-    hackathons: ["HackCBS", "DevsHouse"],
-    email: "me22b1051@iiitdm.ac.in",
-  },
-  {
-    id: 3,
-    name: "Prashant Tyagi",
-    avatar: "anshu.png",
-    domain: "AI/ML",
-    level: "Intermediate",
-    skills: ["Python", "Machine Learning", "Data Science"],
-    location: "Meerut, India",
-    matchScore: 90,
-    hackathons: ["HackVerse", "HackBout"],
-    email: "me22b1069@iiitdm.ac.in",
-  },
-  {
-    id: 4,
-    name: "Ashutosh Shandilya",
-    avatar: "prince.png",
-    domain: "Cloud Computing",
-    level: "Beginner",
-    skills: ["AWS", "Docker", "Kubernetes"],
-    location: "Kanpur, India",
-    matchScore: 85,
-    hackathons: ["HackIndia", "CodeUtsava"],
-    email: "cs22b2050@iiitdm.ac.in",
-  },
-  {
-    id: 5,
-    name: "Nitin Thaber",
-    avatar: "anshu.png",
-    domain: "Cybersecurity",
-    level: "Advanced",
-    skills: ["Network Security", "Python", "Linux"],
-    location: "Delhi, India",
-    matchScore: 87,
-    hackathons: ["HackRush", "HackCBS"],
-    email: "cs22b2047@iiitdm.ac.in",
-  },
-  {
-    id: 6,
-    name: "Anshu Saini",
-    avatar: "anshu.png",
-    domain: "Mobile Development",
-    level: "Intermediate",
-    skills: ["Flutter", "React Native", "Android"],
-    location: "Chennai, India",
-    matchScore: 92,
-    hackathons: ["HackBout", "HackIndia"],
-    email: "cs22b2051@iiitdm.ac.in",
-  },
-  {
-    id: 7,
-    name: "Arpita Roy",
-    avatar: "prince.png",
-    domain: "Data Science",
-    level: "Beginner",
-    skills: ["Python", "Pandas", "Data Visualization"],
-    location: "Kolkata, India",
-    matchScore: 89,
-    hackathons: ["HackVerse", "HackCBS"],
-    email: "me22b1078@iiitdm.ac.in",
-  },
-  {
-    id: 8,
-    name: "Rishit Rastogi",
-    avatar: "anshu.png",
-    domain: "IoT",
-    level: "Advanced",
-    skills: ["Arduino", "Raspberry Pi", "C++"],
-    location: "Lucknow, India",
-    matchScore: 91,
-    hackathons: ["Smart India Hackathon", "HackRush"],
-    email: "me22b2017@iiitdm.ac.in",
-  },
-  {
-    id: 9,
-    name: "Kush Jain",
-    avatar: "prince.png",
-    domain: "Blockchain",
-    level: "Intermediate",
-    skills: ["Solidity", "Web3.js", "React"],
-    location: "Jaipur, India",
-    matchScore: 86,
-    hackathons: ["HackCBS", "HackIndia"],
-    email: "cs22b2010@iiitdm.ac.in",
-  },
-];
 
-// Name to email mapping for buddies (for fallback)
-const buddyEmailMap: Record<string, string> = {
-  "Subhash Bishnoi": "me22b2044@iiitdm.ac.in",
-  "Vikas Yadav": "me22b1051@iiitdm.ac.in",
-  "Prashant Tyagi": "me22b1069@iiitdm.ac.in",
-  "Ashutosh Shandilya": "cs22b2050@iiitdm.ac.in",
-  "Nitin Thaber": "cs22b2047@iiitdm.ac.in",
-  "Anshu Saini": "cs22b2051@iiitdm.ac.in",
-  "Arpita Roy": "me22b1078@iiitdm.ac.in",
-  "Rishit Rastogi": "me22b2017@iiitdm.ac.in",
-  "Kush Jain": "cs22b2010@iiitdm.ac.in",
-};
 
 const BuddyFinder: React.FC = () => {
+  const { theme } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedHackathon, setSelectedHackathon] = useState('all');
-  const [userData, setUserData] = useState<{ name: string; email: string } | null>(null);
+  const [userData, setUserData] = useState<{ fullName: string; email: string } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
 
@@ -172,7 +52,7 @@ const BuddyFinder: React.FC = () => {
           if (userDoc.exists()) {
             const data = userDoc.data();
             setUserData({
-              name: data.fullName || 'User',
+              fullName: data.fullName || 'User',
               email: data.email || user.email || 'unknown@example.com',
             });
           }
@@ -184,17 +64,45 @@ const BuddyFinder: React.FC = () => {
     fetchUserData();
   }, []);
 
-  const filteredProfiles = mockProfiles.filter(profile => {
-    const matchesSearch = profile.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      profile.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      profile.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDomain = selectedDomain === 'all' || profile.domain.toLowerCase() === selectedDomain;
-    const matchesLevel = selectedLevel === 'all' || profile.level.toLowerCase() === selectedLevel.toLowerCase();
-    const matchesHackathon = selectedHackathon === 'all' || 
-      (profile.hackathons && profile.hackathons.includes(selectedHackathon));
-    
-    return matchesSearch && matchesDomain && matchesLevel && matchesHackathon;
-  });
+  // TODO: Replace with real data fetching logic from backend
+  const [filteredProfiles] = useState<BuddyProfile[]>([
+    {
+      id: 1,
+      name: "Arjun Mehta",
+      avatar: "https://i.pravatar.cc/150?u=arjun",
+      domain: "Web Development",
+      level: "Intermediate",
+      skills: ["React", "Node.js", "Tailwind"],
+      location: "Mumbai, India",
+      matchScore: 95,
+      hackathons: ["Smart India Hackathon"],
+      email: "arjun@example.com"
+    },
+    {
+      id: 2,
+      name: "Priya Sharma",
+      avatar: "https://i.pravatar.cc/150?u=priya",
+      domain: "UX Design",
+      level: "Advanced",
+      skills: ["Figma", "Adobe XD", "User Research"],
+      location: "Bangalore, India",
+      matchScore: 88,
+      hackathons: ["HackVerse"],
+      email: "priya@example.com"
+    },
+    {
+      id: 3,
+      name: "Rohan Gupta",
+      avatar: "https://i.pravatar.cc/150?u=rohan",
+      domain: "Artificial Intelligence",
+      level: "Beginner",
+      skills: ["Python", "TensorFlow", "Scikit-learn"],
+      location: "Delhi, India",
+      matchScore: 82,
+      hackathons: ["HackCBS"],
+      email: "rohan@example.com"
+    }
+  ]);
 
   // Only the handleConnect method is changed, rest is same
 const handleConnect = async (buddy: BuddyProfile) => {
@@ -204,19 +112,10 @@ const handleConnect = async (buddy: BuddyProfile) => {
     return;
   }
 
-  // Normalize buddy name and map to get email
-  const normalizedBuddyName = buddy.name.trim().toLowerCase();
-  const normalizedEmailMap: Record<string, string> = {};
-  Object.keys(buddyEmailMap).forEach(
-    key => (normalizedEmailMap[key.trim().toLowerCase()] = buddyEmailMap[key])
-  );
-  const buddyEmail =
-    normalizedEmailMap[normalizedBuddyName] ||
-    (buddy.email && buddy.email.trim()) ||
-    '';
 
-  console.log('DEBUG: Logged-in user email:', userData.email);
-  console.log('DEBUG: Buddy email:', buddyEmail);
+  // No buddyEmailMap fallback, just use buddy.email
+  const buddyEmail = buddy.email && buddy.email.trim() ? buddy.email : '';
+
 
   // Validate emails
   if (!buddyEmail || buddyEmail.trim() === '') {
@@ -232,7 +131,6 @@ const handleConnect = async (buddy: BuddyProfile) => {
   }
 
   try {
-    // Email to logged-in user
     await sendCollabEmail({
       to: userData.email,
       subject: `Buddy Connection Request: ${buddy.name}`,
@@ -240,19 +138,18 @@ const handleConnect = async (buddy: BuddyProfile) => {
       html: `<p>You have requested to connect with <b>${buddy.name}</b> (${buddyEmail}).</p>`,
     });
 
-    // Email to buddy
     await sendCollabEmail({
       to: buddyEmail,
-      subject: `Buddy Connection Request from ${userData.name}`,
-      text: `${userData.name} (${userData.email}) wants to connect with you via CollabUp Buddy Finder!`,
-      html: `<p><b>${userData.name}</b> (${userData.email}) wants to connect with you via CollabUp Buddy Finder!</p>`,
+      subject: `Buddy Connection Request from ${userData.fullName}`,
+      text: `${userData.fullName} (${userData.email}) wants to connect with you via CollabUp Buddy Finder!`,
+      html: `<p><b>${userData.fullName}</b> (${userData.email}) wants to connect with you via CollabUp Buddy Finder!</p>`,
     });
 
-    setModalMessage('You can reach out to the project owner with the credentials shared via mail.');
+    setModalMessage('Connection emails sent successfully! You can reach out to the buddy with the credentials shared via mail.');
     setShowModal(true);
   } catch (err: any) {
     console.error('Email sending error:', err);
-    setModalMessage('Failed to send connection emails. Please try again.');
+    setModalMessage(`Failed to send connection emails: ${err.message}. Please try again or contact support.`);
     setShowModal(true);
   }
 };
@@ -264,166 +161,217 @@ const handleConnect = async (buddy: BuddyProfile) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full border border-gray-700">
-            <p className="text-gray-200 mb-4">{modalMessage}</p>
-            <button
-              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-              onClick={closeModal}
-            >
-              Close
-            </button>
+    <div className={`min-h-screen py-20 px-6 transition-colors duration-500 ${
+      theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'
+    }`}>
+      <div className="max-w-7xl mx-auto">
+        {/* Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-fade-in p-6 transition-all duration-500">
+            <div className={`rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border transform animate-scale-in transition-all duration-500 ${
+              theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+            }`}>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-colors duration-500 ${
+                theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
+              }`}>
+                <MessageCircle className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className={`text-2xl font-black mb-4 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Notification</h3>
+              <p className={`text-lg mb-8 leading-relaxed transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>{modalMessage}</p>
+              <button
+                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 transition-all duration-500 shadow-xl shadow-blue-600/20 active:scale-95"
+                onClick={closeModal}
+              >
+                Got it
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Header */}
+        <div className="text-center mb-20">
+          <h1 className={`text-6xl font-black mb-6 tracking-tight transition-colors duration-500 ${
+            theme === 'dark' ? 'text-white' : 'text-slate-900'
+          }`}>Buddy Finder</h1>
+          <p className={`text-xl max-w-2xl mx-auto font-medium transition-colors duration-500 ${
+            theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+          }`}>
+            Find the perfect study partner based on your interests and skill level
+          </p>
         </div>
-      )}
 
-      {/* Header */}
-      <div className="text-center mb-12 pt-6">
-        <h1 className="text-4xl font-bold text-white mb-4">Buddy Finder</h1>
-        <p className="text-lg text-gray-400">
-          Find the perfect study partner based on your interests and skill level
-        </p>
-      </div>
-
-      {/* Search and Filter Section */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search by name, skills, or location..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-4">
-            <div className="relative">
+        {/* Search and Filter Section */}
+        <div className={`rounded-[2.5rem] shadow-xl p-10 mb-16 border transition-all duration-500 ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-blue-500/10' : 'bg-white border-slate-100 shadow-blue-500/5'
+        }`}>
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="flex-1 relative">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6" />
+              <input
+                type="text"
+                placeholder="Search by name, skills, or location..."
+                className={`w-full pl-14 pr-6 py-4 rounded-2xl outline-none transition-all duration-500 text-lg border ${
+                  theme === 'dark' 
+                    ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-slate-900' 
+                    : 'bg-slate-50 border-slate-100 text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white'
+                }`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-4">
               <select
-                className="appearance-none px-4 py-2 pr-8 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className={`px-6 py-4 rounded-2xl font-bold outline-none transition-all duration-500 cursor-pointer border ${
+                  theme === 'dark'
+                    ? 'bg-slate-950 border-slate-800 text-slate-300 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                    : 'bg-slate-50 border-slate-100 text-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`}
                 value={selectedDomain}
                 onChange={(e) => setSelectedDomain(e.target.value)}
               >
-                <option value="all">Domains</option>
+                <option value="all">All Domains</option>
                 <option value="web development">Web Development</option>
                 <option value="ux design">UX Design</option>
-                <option value="artificial intelligence">Artificial Intelligence</option>
-                <option value="machine learning">Machine Learning</option>
+                <option value="artificial intelligence">AI / ML</option>
                 <option value="blockchain">Blockchain</option>
-                <option value="iot">IOT</option>
                 <option value="cyber security">Cyber Security</option>
               </select>
-            </div>
-            <div className="relative">
+              
               <select
-                className="appearance-none px-4 py-2 pr-8 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className={`px-6 py-4 rounded-2xl font-bold outline-none transition-all duration-500 cursor-pointer border ${
+                  theme === 'dark'
+                    ? 'bg-slate-950 border-slate-800 text-slate-300 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                    : 'bg-slate-50 border-slate-100 text-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`}
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value)}
               >
-                <option value="all">Levels</option>
+                <option value="all">All Levels</option>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
               </select>
-            </div>
-            <div className="relative">
+
               <select
-                className="appearance-none px-4 py-2 pr-8 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className={`px-6 py-4 rounded-2xl font-bold outline-none transition-all duration-500 cursor-pointer border ${
+                  theme === 'dark'
+                    ? 'bg-slate-950 border-slate-800 text-slate-300 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                    : 'bg-slate-50 border-slate-100 text-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500'
+                }`}
                 value={selectedHackathon}
                 onChange={(e) => setSelectedHackathon(e.target.value)}
               >
-                <option value="all">Hackathons</option>
+                <option value="all">All Hackathons</option>
                 {indianHackathons.map((hackathon) => (
-                  <option key={hackathon} value={hackathon}>
-                    {hackathon}
-                  </option>
+                  <option key={hackathon} value={hackathon}>{hackathon}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Buddy Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProfiles.map((profile) => (
-          <div key={profile.id} className="bg-gray-800 rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 border border-gray-700">
-            <div className="relative">
-              <div className="absolute top-4 right-4 bg-gray-900 px-3 py-1 rounded-full shadow-md border border-gray-700">
-                <div className="flex items-center gap-1">
-                  <Star className="text-yellow-400" size={16} fill="currentColor" />
-                  <span className="font-semibold text-gray-200">{profile.matchScore}%</span>
+        {/* Buddy Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {filteredProfiles.map((profile) => (
+            <div key={profile.id} className={`group rounded-[3rem] shadow-xl overflow-hidden border transition-all duration-500 ${
+              theme === 'dark' 
+                ? 'bg-slate-900 border-slate-800 shadow-blue-500/10 hover:shadow-blue-500/20' 
+                : 'bg-white border-slate-100 shadow-blue-500/5 hover:shadow-blue-500/10'
+            }`}>
+              <div className="relative h-32 bg-gradient-to-r from-blue-600 to-blue-400">
+                <div className="absolute -bottom-12 left-8">
+                  <img
+                    src={profile.avatar}
+                    alt={profile.name}
+                    className={`w-24 h-24 rounded-[2rem] object-cover border-4 shadow-xl group-hover:scale-105 transition-transform duration-500 ${
+                      theme === 'dark' ? 'border-slate-900' : 'border-white'
+                    }`}
+                  />
                 </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center gap-4 mb-4">
-                <img
-                  src={profile.avatar}
-                  alt={profile.name}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-gray-600"
-                />
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-200">{profile.name}</h3>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <MapPin size={16} />
-                    <span className="text-sm">{profile.location}</span>
+                <div className="absolute top-4 right-6 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 transition-all duration-500">
+                  <div className="flex items-center gap-2">
+                    <Star className="text-yellow-400 w-4 h-4 fill-current" />
+                    <span className="font-bold text-white text-sm">{profile.matchScore}% Match</span>
                   </div>
                 </div>
               </div>
-              
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <BookOpen size={16} className="text-indigo-400" />
-                  <span className="font-medium text-gray-300">{profile.domain}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Code size={16} className="text-indigo-400" />
-                  <span className="text-gray-400">{profile.level}</span>
-                </div>
-              </div>
 
-              <div className="flex flex-wrap gap-2 mb-4">
-                {profile.skills.map((skill, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-700 text-indigo-300 rounded-full text-sm border border-gray-600"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-
-              {profile.hackathons && profile.hackathons.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-sm text-gray-400 mb-2">Hackathons:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.hackathons.map((hackathon, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-indigo-900/50 text-indigo-300 rounded-full text-sm border border-indigo-800"
-                      >
-                        {hackathon}
-                      </span>
-                    ))}
+              <div className="p-10 pt-16">
+                <div className="mb-8">
+                  <h3 className={`text-2xl font-black mb-2 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{profile.name}</h3>
+                  <div className={`flex items-center gap-2 font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <MapPin className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm uppercase tracking-wider">{profile.location}</span>
                   </div>
                 </div>
-              )}
+                
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'
+                    }`}>
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Domain</p>
+                      <p className={`font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{profile.domain}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-500 ${
+                      theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'
+                    }`}>
+                      <Code className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Skill Level</p>
+                      <p className={`font-bold transition-colors duration-500 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{profile.level}</p>
+                    </div>
+                  </div>
+                </div>
 
-              <button
-                className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                onClick={() => handleConnect(profile)}
-              >
-                <MessageCircle size={20} />
-                Connect
-              </button>
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {profile.skills.map((skill, index) => (
+                    <span key={index} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all duration-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-950 text-slate-400 border-slate-800 group-hover:bg-blue-900/30 group-hover:text-blue-400'
+                        : 'bg-slate-50 text-slate-600 border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-600'
+                    }`}>
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+
+                {profile.hackathons && profile.hackathons.length > 0 && (
+                  <div className={`mb-10 p-4 rounded-2xl border transition-colors duration-500 ${
+                    theme === 'dark' ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Hackathons</p>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.hackathons.map((hackathon, index) => (
+                        <span key={index} className={`px-3 py-1 rounded-lg text-xs font-bold shadow-sm border transition-all duration-500 ${
+                          theme === 'dark'
+                            ? 'bg-blue-900/30 text-blue-400 border-blue-900/50'
+                            : 'bg-white text-blue-600 border-blue-100'
+                        }`}>
+                          {hackathon}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  className="w-full flex items-center justify-center gap-3 bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 hover:scale-[1.02] transition-all duration-500 shadow-xl shadow-blue-600/20 active:scale-95"
+                  onClick={() => handleConnect(profile)}
+                >
+                  <MessageCircle className="w-6 h-6" />
+                  Connect Now
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

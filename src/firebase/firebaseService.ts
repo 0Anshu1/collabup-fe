@@ -30,12 +30,27 @@ interface ResearchProject {
   certificate: boolean;
 }
 
+interface StudentProject {
+  id: string;
+  title: string;
+  description: string;
+  domain: string;
+  level: string;
+  technologies: string[];
+  duration: string;
+  coverUrl: string;
+  ownerId: string;
+  ownerEmail: string;
+  ownerName: string;
+  location: string;
+}
+
 interface Faculty {
   id: string;
   fullName: string;
   email: string;
   instituteName: string;
-  researchInterests: string[];
+  researchAreas: string[];
   spotsAvailable: number; // <-- Add spotsAvailable here
   startDate: string; // <-- Add startDate here
 }
@@ -64,11 +79,11 @@ export const getProjects = async (
   userData?: { expertiseAreas?: string[]; researchAreas?: string[] } | null
 ): Promise<Project[]> => {
   try {
-    let projectsQuery = query(collection(db, 'startups'));
+    let projectsQuery = query(collection(db, 'startupProjects'));
     if (userRole === 'mentor' && userData?.expertiseAreas) {
-      projectsQuery = query(collection(db, 'startups'), where('domain', 'in', userData.expertiseAreas));
+      projectsQuery = query(collection(db, 'startupProjects'), where('domain', 'in', userData.expertiseAreas));
     } else if (userRole === 'faculty' && userData?.researchAreas) {
-      projectsQuery = query(collection(db, 'startups'), where('domain', 'in', userData.researchAreas));
+      projectsQuery = query(collection(db, 'startupProjects'), where('domain', 'in', userData.researchAreas));
     }
     const querySnapshot = await getDocs(projectsQuery);
     return querySnapshot.docs.map((doc, index) => ({
@@ -122,20 +137,56 @@ export const getResearchProjects = async (
 
 export const getFaculties = async (): Promise<Faculty[]> => {
   try {
-    // Fetch from 'faculty' collection instead of 'users'
-    const facultyQuery = query(collection(db, 'faculty'));
+    // Fetch from 'users' collection where role is 'faculty'
+    const facultyQuery = query(collection(db, 'users'), where('role', '==', 'faculty'));
     const querySnapshot = await getDocs(facultyQuery);
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
-      fullName: doc.data().fullName || 'Unknown',
+      fullName: doc.data().fullName || doc.data().name || 'Unknown',
       email: doc.data().email || '',
-      instituteName: doc.data().instituteName || '',
-      researchInterests: doc.data().researchInterests || [],
+      instituteName: doc.data().instituteName || doc.data().institute || '',
+      researchAreas: doc.data().researchAreas || doc.data().researchInterests || [],
       spotsAvailable: doc.data().spotsAvailable ?? 0,
       startDate: doc.data().startDate ?? '',
     } as Faculty));
   } catch (error) {
     console.error('Error fetching faculties:', error);
+    throw error;
+  }
+};
+
+export const getStudentProjects = async (): Promise<StudentProject[]> => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'studentProjects'));
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      title: doc.data().title || '',
+      description: doc.data().description || '',
+      domain: doc.data().domain || '',
+      level: doc.data().level || '',
+      technologies: doc.data().technologies || [],
+      duration: doc.data().duration || '',
+      coverUrl: doc.data().coverUrl || '',
+      ownerId: doc.data().ownerId || '',
+      ownerEmail: doc.data().ownerEmail || '',
+      ownerName: doc.data().ownerName || doc.data().fullName || '',
+      location: doc.data().location || '',
+    } as StudentProject));
+  } catch (error) {
+    console.error('Error fetching student projects:', error);
+    throw error;
+  }
+};
+
+export const addStudentProject = async (projectData: Omit<StudentProject, 'id'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'studentProjects'), {
+      ...projectData,
+      createdAt: new Date(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding student project:', error);
     throw error;
   }
 };
