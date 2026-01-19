@@ -95,7 +95,6 @@ function AppContent() {
               <Route path="/showcase" element={<Showcase />} />
               <Route path="/talent-matches" element={<TalentMatches />} />
               <Route path="/badges" element={<Badges />} />
-              <Route path="/mentor-badges" element={<Badges />} />
               <Route path="/create-research" element={<CreateResearchProject />} />
               <Route path="/create-startup-project" element={<CreateStartupProject />} />
               <Route path="/reviews" element={<Reviews />} />

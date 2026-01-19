@@ -80,9 +80,7 @@ const Navbar = () => {
     ],
     mentor: [
       { to: '/mentor-dashboard', label: 'Mentor Dashboard' },
-      { to: '/mentorship', label: 'Mentorship' },
       { to: '/impact-analytics', label: 'Impact Analytics', feature: 'analytics' },
-      { to: '/mentor-badges', label: 'Mentor Badges', feature: 'badges' },
     ],
     faculty: [
       { to: '/faculty-dashboard', label: 'Faculty Dashboard' },

@@ -137,7 +137,7 @@ const MentorDashboard = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
               <Link to="/impact-analytics" className={`rounded-3xl p-8 shadow-sm border transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/5 hover:-translate-y-1 group animate-scale-in focus:ring-4 focus:ring-blue-500/50 outline-none ${
                 theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'
               }`} style={{ animationDelay: '100ms' }}>
@@ -150,20 +150,6 @@ const MentorDashboard = () => {
                 </div>
                 <h2 className={`text-xl font-bold mb-3 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Impact Analytics</h2>
                 <p className={`${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'} text-sm leading-relaxed transition-colors duration-500`}>Track your mentorship hours, ratings, and global impact.</p>
-              </Link>
-
-              <Link to="/badges" className={`rounded-3xl p-8 shadow-sm border transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/5 hover:-translate-y-1 group animate-scale-in focus:ring-4 focus:ring-blue-500/50 outline-none ${
-                theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'
-              }`} style={{ animationDelay: '200ms' }}>
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 transition-all duration-500 ${
-                  theme === 'dark' 
-                    ? 'bg-blue-900/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white' 
-                    : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'
-                }`}>
-                  <Award className="w-6 h-6" />
-                </div>
-                <h2 className={`text-xl font-bold mb-3 transition-colors duration-500 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Mentor Badges</h2>
-                <p className={`${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'} text-sm leading-relaxed transition-colors duration-500`}>View your earned badges and professional recognitions.</p>
               </Link>
 
               <Link to="/reviews" className={`rounded-3xl p-8 shadow-sm border transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/5 hover:-translate-y-1 group animate-scale-in focus:ring-4 focus:ring-blue-500/50 outline-none ${
