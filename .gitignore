@@ -22,6 +22,8 @@ serviceAccountKey.json
 backend/serviceAccountKey.json
 .env
 backend/.env
+Android Application/
+google-services.json
 
 # Python cache
 __pycache__/
